@@ -50,6 +50,8 @@ interface AppState {
   loadDemoBusiness: () => void;
   setUsuarioActual: (usuario: Usuario) => void;
   cambiarRol: (rol: RolUsuario) => void;
+  actualizarNegocio: (datos: Partial<Negocio>) => void;
+  actualizarPerfilUsuario: (datos: { nombre?: string; email?: string; telefono?: string | null; password?: string }) => void;
   agregarEmpleado: (datos: { nombre: string; telefono?: string; password?: string; rol: RolUsuario; permisos?: PermisosEmpleado }) => void;
   editarEmpleado: (id: string, datos: Partial<Usuario>) => void;
   eliminarEmpleado: (id: string) => void;
@@ -326,6 +328,34 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => ({
       usuarioActual: { ...state.usuarioActual, rol },
     }));
+    saveState();
+  },
+
+  actualizarNegocio: (datos) => {
+    set((state) => ({
+      negocio: {
+        ...state.negocio,
+        ...datos,
+        updated_at: new Date().toISOString(),
+      },
+    }));
+    saveState();
+  },
+
+  actualizarPerfilUsuario: (datos) => {
+    set((state) => {
+      const updatedUser = {
+        ...state.usuarioActual,
+        ...datos,
+        updated_at: new Date().toISOString(),
+      };
+      return {
+        usuarioActual: updatedUser,
+        usuarios: state.usuarios.map((u) =>
+          u.id === updatedUser.id ? updatedUser : u
+        ),
+      };
+    });
     saveState();
   },
 

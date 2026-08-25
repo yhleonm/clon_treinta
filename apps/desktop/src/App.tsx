@@ -14,6 +14,7 @@ import { OnlineStorePage } from './pages/OnlineStorePage';
 import { AuthPage } from './pages/AuthPage';
 import { CashRegisterModal } from './components/caja/CashRegisterModal';
 import { ExpenseModal } from './components/expenses/ExpenseModal';
+import { SettingsModal } from './components/settings/SettingsModal';
 import { useAppStore } from './store/useAppStore';
 
 export function App() {
@@ -21,6 +22,7 @@ export function App() {
   const [currentTab, setCurrentTab] = useState<TabView>('pos');
   const [isCashModalOpen, setIsCashModalOpen] = useState(false);
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
   const isAdmin = usuarioActual?.rol === 'administrador' || usuarioActual?.rol === 'propietario';
 
@@ -38,7 +40,11 @@ export function App() {
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-slate-100 antialiased">
       {/* Navigation Sidebar */}
-      <Sidebar currentTab={currentTab} onSelectTab={setCurrentTab} />
+      <Sidebar
+        currentTab={currentTab}
+        onSelectTab={setCurrentTab}
+        onOpenSettings={() => setIsSettingsModalOpen(true)}
+      />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
@@ -79,6 +85,11 @@ export function App() {
       <ExpenseModal
         isOpen={isExpenseModalOpen}
         onClose={() => setIsExpenseModalOpen(false)}
+      />
+
+      <SettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
       />
     </div>
   );

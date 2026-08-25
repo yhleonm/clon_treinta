@@ -34,9 +34,10 @@ export type TabView =
 interface SidebarProps {
   currentTab: TabView;
   onSelectTab: (tab: TabView) => void;
+  onOpenSettings?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, onOpenSettings }) => {
   const { negocio, usuarioActual, logout } = useAppStore();
 
   const isAdmin = usuarioActual.rol === 'administrador' || usuarioActual.rol === 'propietario';
@@ -54,9 +55,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
 
         {/* Business & Active User Selector Pill */}
         <div className="px-4 py-2">
-          <div className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 border border-slate-200/80 shadow-inner">
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            className="w-full text-left flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 hover:bg-slate-100/90 border border-slate-200/80 shadow-inner transition group cursor-pointer"
+            title="Editar negocio y perfil"
+          >
             <div className="flex items-center gap-2.5 overflow-hidden">
-              <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-sm shrink-0">
+              <div className="w-9 h-9 rounded-full bg-emerald-100 group-hover:bg-emerald-200 text-emerald-800 flex items-center justify-center font-black text-sm shrink-0 transition">
                 {usuarioActual.nombre ? usuarioActual.nombre.slice(0, 2).toUpperCase() : '30'}
               </div>
               <div className="overflow-hidden">
@@ -79,7 +85,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
                 </p>
               </div>
             </div>
-          </div>
+            <Settings className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-600 shrink-0 transition" />
+          </button>
         </div>
 
         {/* SECTION 1: GESTIONA TU NEGOCIO */}
@@ -312,22 +319,27 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
 
       {/* FOOTER & LOGOUT */}
       <div className="p-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black text-base shadow-sm">
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          className="flex items-center gap-2 hover:bg-slate-200/70 p-1.5 rounded-2xl transition cursor-pointer text-left group"
+          title="Abrir Configuración"
+        >
+          <div className="w-9 h-9 rounded-xl bg-emerald-600 group-hover:bg-emerald-500 text-white flex items-center justify-center font-black text-base shadow-sm transition">
             30
           </div>
           <div>
-            <div className="flex items-center gap-1 text-xs font-extrabold text-slate-800">
-              <Settings className="w-3.5 h-3.5 text-slate-500" />
+            <div className="flex items-center gap-1 text-xs font-extrabold text-slate-800 group-hover:text-emerald-700 transition">
+              <Settings className="w-3.5 h-3.5 text-slate-500 group-hover:text-emerald-600 transition" />
               <span>Configuración</span>
             </div>
             <div className="text-[10px] font-mono text-slate-400">v5.5.6</div>
           </div>
-        </div>
+        </button>
 
         <button
           onClick={logout}
-          className="p-2 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition"
+          className="p-2 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
           title="Cerrar Sesión"
         >
           <LogOut className="w-4 h-4" />
