@@ -15,34 +15,14 @@ import {
 import { useAppStore } from '../store/useAppStore';
 
 export const AuthPage: React.FC = () => {
-  const { login, registerBusiness, demoLogin, loadDemoBusiness, usuarios, negocio } = useAppStore();
-
-  const isDemoBusiness = negocio.id === 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
+  const { login, registerBusiness, loadDemoBusiness } = useAppStore();
 
   const [tab, setTab] = useState<'login' | 'register'>('login');
-  const [selectedUser, setSelectedUser] = useState<any | null>(usuarios[0] || null);
 
   // Login form state
-  const [loginIdentifier, setLoginIdentifier] = useState(usuarios[0]?.email || '');
+  const [loginIdentifier, setLoginIdentifier] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
-  const [isManualInput, setIsManualInput] = useState(false);
-
-  // Update default inputs when negocio or usuarios changes
-  React.useEffect(() => {
-    if (usuarios.length > 0 && !selectedUser) {
-      setSelectedUser(usuarios[0]);
-      setLoginIdentifier(usuarios[0]?.email || '');
-    }
-  }, [usuarios, selectedUser]);
-
-  const handleSelectUser = (user: any) => {
-    setSelectedUser(user);
-    setLoginIdentifier(user.email || user.telefono || '');
-    setLoginPassword('');
-    setLoginError('');
-    setIsManualInput(false);
-  };
 
   // Register form state
   const [businessName, setBusinessName] = useState('');
@@ -55,21 +35,19 @@ export const AuthPage: React.FC = () => {
     e.preventDefault();
     setLoginError('');
 
-    const identifier = selectedUser ? (selectedUser.email || selectedUser.telefono) : loginIdentifier;
-
-    if (!identifier.trim()) {
-      setLoginError('Por favor selecciona un usuario o ingresa tu correo/celular');
+    if (!loginIdentifier.trim()) {
+      setLoginError('Por favor ingresa tu correo o número de celular');
       return;
     }
 
     if (!loginPassword.trim()) {
-      setLoginError('Por favor ingresa tu PIN o contraseña');
+      setLoginError('Por favor ingresa tu contraseña o PIN');
       return;
     }
 
-    const res = login(identifier, loginPassword);
+    const res = login(loginIdentifier, loginPassword);
     if (!res.success) {
-      setLoginError(res.error || 'PIN o credenciales incorrectas');
+      setLoginError(res.error || 'Credenciales o PIN incorrectos');
     }
   };
 
@@ -158,7 +136,7 @@ export const AuthPage: React.FC = () => {
             <div className="bg-slate-800/80 p-1 rounded-2xl flex items-center">
               <button
                 type="button"
-                onClick={() => setTab('login')}
+                onClick={() => { setTab('login'); setLoginError(''); }}
                 className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${
                   tab === 'login'
                     ? 'bg-emerald-500 text-slate-950 shadow-md font-black'
@@ -169,7 +147,7 @@ export const AuthPage: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={() => setTab('register')}
+                onClick={() => { setTab('register'); setRegisterError(''); }}
                 className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${
                   tab === 'register'
                     ? 'bg-emerald-500 text-slate-950 shadow-md font-black'
@@ -180,18 +158,13 @@ export const AuthPage: React.FC = () => {
               </button>
             </div>
 
-            {/* TAB 1: INICIAR SESIÓN */}
+            {/* TAB 1: INICIAR SESIÓN (PRODUCCIÓN) */}
             {tab === 'login' && (
-              <form onSubmit={handleLogin} className="space-y-5 animate-in fade-in duration-150">
+              <form onSubmit={handleLogin} className="space-y-4 animate-in fade-in duration-150">
                 <div>
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-extrabold text-white">Iniciar Sesión</h3>
-                    <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md truncate max-w-[170px]">
-                      {negocio.nombre}
-                    </span>
-                  </div>
+                  <h3 className="text-lg font-extrabold text-white">Bienvenido de vuelta</h3>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Selecciona tu perfil e ingresa tu PIN de acceso
+                    Ingresa con tu correo o número de celular registrado
                   </p>
                 </div>
 
@@ -202,105 +175,33 @@ export const AuthPage: React.FC = () => {
                   </div>
                 )}
 
-                {/* 1. SELECCIONA TU USUARIO */}
-                {!isManualInput && (
-                  <div className="space-y-2">
-                    <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
-                      1. Selecciona tu perfil:
-                    </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
-                      {usuarios.map((u) => {
-                        const isSelected = selectedUser?.id === u.id;
-                        return (
-                          <button
-                            key={u.id}
-                            type="button"
-                            onClick={() => handleSelectUser(u)}
-                            className={`p-3 rounded-2xl text-left transition border ${
-                              isSelected
-                                ? 'bg-emerald-500/15 border-emerald-500 ring-2 ring-emerald-500/30'
-                                : 'bg-slate-800/80 hover:bg-slate-700/80 border-slate-700/80'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between mb-1">
-                              <span className={`font-extrabold text-xs truncate ${
-                                isSelected ? 'text-emerald-400' : 'text-white'
-                              }`}>
-                                {u.nombre}
-                              </span>
-                              <span
-                                className={`text-[9px] px-1.5 py-0.2 rounded font-black uppercase ${
-                                  u.rol === 'propietario' || u.rol === 'administrador'
-                                    ? 'bg-emerald-500/20 text-emerald-300'
-                                    : 'bg-sky-500/20 text-sky-300'
-                                }`}
-                              >
-                                {u.rol}
-                              </span>
-                            </div>
-                            <div className="text-[10px] text-slate-400 truncate">
-                              {u.telefono || u.email}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* 2. INGRESO MANUAL ALTERNATIVO */}
-                {isManualInput && (
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-xs font-bold uppercase text-slate-400">
-                        Correo o Celular
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsManualInput(false);
-                          if (usuarios.length > 0) handleSelectUser(usuarios[0]);
-                        }}
-                        className="text-[11px] text-emerald-400 hover:underline font-bold"
-                      >
-                        ← Volver a lista de perfiles
-                      </button>
-                    </div>
-                    <div className="relative">
-                      <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-                      <input
-                        type="text"
-                        required
-                        placeholder="admin@correo.com o 3123822341"
-                        value={loginIdentifier}
-                        onChange={(e) => setLoginIdentifier(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-2xl text-sm font-semibold text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* 3. CAMPO OBLIGATORIO DE PIN / PASSWORD */}
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-bold uppercase text-slate-400">
-                      {selectedUser && !isManualInput
-                        ? `2. Ingresa el PIN de ${selectedUser.nombre} *`
-                        : 'Contraseña o PIN *'}
-                    </label>
-                    {isDemoBusiness && (
-                      <span className="text-[10px] text-amber-300 font-bold bg-amber-400/10 px-1.5 py-0.5 rounded">
-                        PIN Demo: 1234
-                      </span>
-                    )}
+                  <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">
+                    Correo Electrónico o Celular *
+                  </label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                    <input
+                      type="text"
+                      required
+                      placeholder="ej. usuario@correo.com o 3123822341"
+                      value={loginIdentifier}
+                      onChange={(e) => setLoginIdentifier(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-2xl text-sm font-semibold text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">
+                    Contraseña o PIN *
+                  </label>
                   <div className="relative">
                     <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                     <input
                       type="password"
                       required
-                      autoFocus
-                      placeholder="••••"
+                      placeholder="••••••••"
                       value={loginPassword}
                       onChange={(e) => setLoginPassword(e.target.value)}
                       className="w-full pl-10 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-2xl text-sm font-semibold text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
@@ -308,52 +209,33 @@ export const AuthPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* BOTÓN INGRESAR */}
                 <button
                   type="submit"
                   className="w-full py-3.5 px-4 bg-emerald-500 hover:bg-emerald-400 active:scale-98 text-slate-950 rounded-2xl font-black text-sm shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2"
                 >
-                  <span>
-                    {selectedUser && !isManualInput
-                      ? `Ingresar como ${selectedUser.nombre}`
-                      : 'Ingresar a mi Negocio'}
-                  </span>
+                  <span>Iniciar Sesión</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
 
-                {/* BOTÓN MODO MANUAL Y RETORNO DEMO */}
-                <div className="pt-2 flex items-center justify-between text-xs">
-                  {!isManualInput && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsManualInput(true);
-                        setSelectedUser(null);
-                        setLoginIdentifier('');
-                        setLoginPassword('');
-                      }}
-                      className="text-slate-400 hover:text-slate-300 text-[11px] font-bold"
-                    >
-                      Escribir otro correo / celular
-                    </button>
-                  )}
-                  {!isDemoBusiness ? (
-                    <button
-                      type="button"
-                      onClick={loadDemoBusiness}
-                      className="text-slate-400 hover:text-emerald-400 text-[11px] font-bold ml-auto"
-                    >
-                      🔄 Cargar Negocio Demo
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setTab('register')}
-                      className="text-emerald-400 hover:text-emerald-300 text-[11px] font-bold ml-auto"
-                    >
-                      + Registrar nuevo negocio
-                    </button>
-                  )}
+                <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      loadDemoBusiness();
+                      setLoginIdentifier('jackeline@eltriunfo.com');
+                      setLoginPassword('1234');
+                    }}
+                    className="text-slate-400 hover:text-emerald-400 text-[11px] font-bold transition flex items-center gap-1"
+                  >
+                    <span>🔄 Cargar Demo (El Triunfo)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTab('register')}
+                    className="text-emerald-400 hover:text-emerald-300 text-[11px] font-bold"
+                  >
+                    ¿No tienes cuenta? Regístrate
+                  </button>
                 </div>
               </form>
             )}
@@ -428,7 +310,7 @@ export const AuthPage: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">
-                    Contraseña / PIN de Propietario *
+                    Contraseña *
                   </label>
                   <div className="relative">
                     <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
