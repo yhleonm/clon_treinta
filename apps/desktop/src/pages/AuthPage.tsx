@@ -20,26 +20,29 @@ export const AuthPage: React.FC = () => {
   const isDemoBusiness = negocio.id === 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
 
   const [tab, setTab] = useState<'login' | 'register'>('login');
+  const [selectedUser, setSelectedUser] = useState<any | null>(usuarios[0] || null);
 
   // Login form state
-  const [loginIdentifier, setLoginIdentifier] = useState(
-    isDemoBusiness ? 'jackeline@eltriunfo.com' : (usuarios[0]?.email || '')
-  );
-  const [loginPassword, setLoginPassword] = useState(
-    isDemoBusiness ? '1234' : ((usuarios[0] as any)?.password || '')
-  );
+  const [loginIdentifier, setLoginIdentifier] = useState(usuarios[0]?.email || '');
+  const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [isManualInput, setIsManualInput] = useState(false);
 
-  // Update default inputs when negocio changes
+  // Update default inputs when negocio or usuarios changes
   React.useEffect(() => {
-    if (isDemoBusiness) {
-      setLoginIdentifier('jackeline@eltriunfo.com');
-      setLoginPassword('1234');
-    } else {
+    if (usuarios.length > 0 && !selectedUser) {
+      setSelectedUser(usuarios[0]);
       setLoginIdentifier(usuarios[0]?.email || '');
-      setLoginPassword((usuarios[0] as any)?.password || '');
     }
-  }, [negocio.id, isDemoBusiness, usuarios]);
+  }, [usuarios, selectedUser]);
+
+  const handleSelectUser = (user: any) => {
+    setSelectedUser(user);
+    setLoginIdentifier(user.email || user.telefono || '');
+    setLoginPassword('');
+    setLoginError('');
+    setIsManualInput(false);
+  };
 
   // Register form state
   const [businessName, setBusinessName] = useState('');
@@ -52,14 +55,21 @@ export const AuthPage: React.FC = () => {
     e.preventDefault();
     setLoginError('');
 
-    if (!loginIdentifier.trim()) {
-      setLoginError('Por favor ingresa tu correo o celular');
+    const identifier = selectedUser ? (selectedUser.email || selectedUser.telefono) : loginIdentifier;
+
+    if (!identifier.trim()) {
+      setLoginError('Por favor selecciona un usuario o ingresa tu correo/celular');
       return;
     }
 
-    const res = login(loginIdentifier, loginPassword);
+    if (!loginPassword.trim()) {
+      setLoginError('Por favor ingresa tu PIN o contraseña');
+      return;
+    }
+
+    const res = login(identifier, loginPassword);
     if (!res.success) {
-      setLoginError(res.error || 'Credenciales incorrectas');
+      setLoginError(res.error || 'PIN o credenciales incorrectas');
     }
   };
 
@@ -67,7 +77,7 @@ export const AuthPage: React.FC = () => {
     e.preventDefault();
     setRegisterError('');
 
-    if (!businessName.trim() || !ownerName.trim() || !registerEmail.trim()) {
+    if (!businessName.trim() || !ownerName.trim() || !registerEmail.trim() || !registerPassword.trim()) {
       setRegisterError('Por favor completa todos los campos requeridos');
       return;
     }
@@ -172,11 +182,16 @@ export const AuthPage: React.FC = () => {
 
             {/* TAB 1: INICIAR SESIÓN */}
             {tab === 'login' && (
-              <form onSubmit={handleLogin} className="space-y-4 animate-in fade-in duration-150">
+              <form onSubmit={handleLogin} className="space-y-5 animate-in fade-in duration-150">
                 <div>
-                  <h3 className="text-lg font-extrabold text-white">Bienvenido de vuelta</h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-extrabold text-white">Iniciar Sesión</h3>
+                    <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md truncate max-w-[170px]">
+                      {negocio.nombre}
+                    </span>
+                  </div>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Ingresa tus credenciales o accede como empleado
+                    Selecciona tu perfil e ingresa tu PIN de acceso
                   </p>
                 </div>
 
@@ -187,33 +202,105 @@ export const AuthPage: React.FC = () => {
                   </div>
                 )}
 
-                <div>
-                  <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">
-                    Correo o Celular
-                  </label>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-                    <input
-                      type="text"
-                      required
-                      placeholder="admin@eltriunfo.com o 3123822341"
-                      value={loginIdentifier}
-                      onChange={(e) => setLoginIdentifier(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-2xl text-sm font-semibold text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                    />
+                {/* 1. SELECCIONA TU USUARIO */}
+                {!isManualInput && (
+                  <div className="space-y-2">
+                    <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+                      1. Selecciona tu perfil:
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+                      {usuarios.map((u) => {
+                        const isSelected = selectedUser?.id === u.id;
+                        return (
+                          <button
+                            key={u.id}
+                            type="button"
+                            onClick={() => handleSelectUser(u)}
+                            className={`p-3 rounded-2xl text-left transition border ${
+                              isSelected
+                                ? 'bg-emerald-500/15 border-emerald-500 ring-2 ring-emerald-500/30'
+                                : 'bg-slate-800/80 hover:bg-slate-700/80 border-slate-700/80'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className={`font-extrabold text-xs truncate ${
+                                isSelected ? 'text-emerald-400' : 'text-white'
+                              }`}>
+                                {u.nombre}
+                              </span>
+                              <span
+                                className={`text-[9px] px-1.5 py-0.2 rounded font-black uppercase ${
+                                  u.rol === 'propietario' || u.rol === 'administrador'
+                                    ? 'bg-emerald-500/20 text-emerald-300'
+                                    : 'bg-sky-500/20 text-sky-300'
+                                }`}
+                              >
+                                {u.rol}
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-slate-400 truncate">
+                              {u.telefono || u.email}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                )}
 
+                {/* 2. INGRESO MANUAL ALTERNATIVO */}
+                {isManualInput && (
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-bold uppercase text-slate-400">
+                        Correo o Celular
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsManualInput(false);
+                          if (usuarios.length > 0) handleSelectUser(usuarios[0]);
+                        }}
+                        className="text-[11px] text-emerald-400 hover:underline font-bold"
+                      >
+                        ← Volver a lista de perfiles
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                      <input
+                        type="text"
+                        required
+                        placeholder="admin@correo.com o 3123822341"
+                        value={loginIdentifier}
+                        onChange={(e) => setLoginIdentifier(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-2xl text-sm font-semibold text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. CAMPO OBLIGATORIO DE PIN / PASSWORD */}
                 <div>
-                  <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">
-                    Contraseña / PIN
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold uppercase text-slate-400">
+                      {selectedUser && !isManualInput
+                        ? `2. Ingresa el PIN de ${selectedUser.nombre} *`
+                        : 'Contraseña o PIN *'}
+                    </label>
+                    {isDemoBusiness && (
+                      <span className="text-[10px] text-amber-300 font-bold bg-amber-400/10 px-1.5 py-0.5 rounded">
+                        PIN Demo: 1234
+                      </span>
+                    )}
+                  </div>
                   <div className="relative">
                     <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                     <input
                       type="password"
                       required
-                      placeholder="••••••••"
+                      autoFocus
+                      placeholder="••••"
                       value={loginPassword}
                       onChange={(e) => setLoginPassword(e.target.value)}
                       className="w-full pl-10 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-2xl text-sm font-semibold text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
@@ -221,13 +308,53 @@ export const AuthPage: React.FC = () => {
                   </div>
                 </div>
 
+                {/* BOTÓN INGRESAR */}
                 <button
                   type="submit"
                   className="w-full py-3.5 px-4 bg-emerald-500 hover:bg-emerald-400 active:scale-98 text-slate-950 rounded-2xl font-black text-sm shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2"
                 >
-                  <span>Ingresar a mi Negocio</span>
+                  <span>
+                    {selectedUser && !isManualInput
+                      ? `Ingresar como ${selectedUser.nombre}`
+                      : 'Ingresar a mi Negocio'}
+                  </span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
+
+                {/* BOTÓN MODO MANUAL Y RETORNO DEMO */}
+                <div className="pt-2 flex items-center justify-between text-xs">
+                  {!isManualInput && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsManualInput(true);
+                        setSelectedUser(null);
+                        setLoginIdentifier('');
+                        setLoginPassword('');
+                      }}
+                      className="text-slate-400 hover:text-slate-300 text-[11px] font-bold"
+                    >
+                      Escribir otro correo / celular
+                    </button>
+                  )}
+                  {!isDemoBusiness ? (
+                    <button
+                      type="button"
+                      onClick={loadDemoBusiness}
+                      className="text-slate-400 hover:text-emerald-400 text-[11px] font-bold ml-auto"
+                    >
+                      🔄 Cargar Negocio Demo
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setTab('register')}
+                      className="text-emerald-400 hover:text-emerald-300 text-[11px] font-bold ml-auto"
+                    >
+                      + Registrar nuevo negocio
+                    </button>
+                  )}
+                </div>
               </form>
             )}
 
@@ -301,14 +428,14 @@ export const AuthPage: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">
-                    Contraseña *
+                    Contraseña / PIN de Propietario *
                   </label>
                   <div className="relative">
                     <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                     <input
                       type="password"
                       required
-                      placeholder="Mínimo 6 caracteres"
+                      placeholder="Mínimo 4 caracteres (ej. 1234)"
                       value={registerPassword}
                       onChange={(e) => setRegisterPassword(e.target.value)}
                       className="w-full pl-10 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-2xl text-sm font-semibold text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -324,109 +451,6 @@ export const AuthPage: React.FC = () => {
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </form>
-            )}
-          </div>
-
-          {/* DEMO / QUICK ACCESS TILES */}
-          <div className="p-4 rounded-3xl bg-slate-900/50 border border-slate-800/80 space-y-3">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
-              <span>
-                {isDemoBusiness
-                  ? '⚡ Acceso Rápido (Negocio Demo):'
-                  : '👥 Usuarios Registrados:'}
-              </span>
-              <span className="text-emerald-400 font-semibold truncate max-w-[180px]">
-                {negocio.nombre}
-              </span>
-            </div>
-
-            {isDemoBusiness ? (
-              /* DEMO USERS (EL TRIUNFO) */
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => demoLogin('u-jackeline')}
-                  className="p-3 bg-slate-800 hover:bg-slate-700/80 border border-slate-700 rounded-2xl text-left transition group"
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-extrabold text-xs text-white group-hover:text-emerald-400">
-                      Jackeline
-                    </span>
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold">
-                      Admin
-                    </span>
-                  </div>
-                  <div className="text-[10px] text-slate-400">Acceso total a balances y gastos</div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => demoLogin('u-manolo')}
-                  className="p-3 bg-slate-800 hover:bg-slate-700/80 border border-slate-700 rounded-2xl text-left transition group"
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-extrabold text-xs text-white group-hover:text-sky-400">
-                      Manolo
-                    </span>
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 font-bold">
-                      Vendedor
-                    </span>
-                  </div>
-                  <div className="text-[10px] text-slate-400">Solo ventas (POS) y catálogo</div>
-                </button>
-              </div>
-            ) : (
-              /* CUSTOM BUSINESS USERS */
-              <div className="space-y-2">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {usuarios.map((u) => (
-                    <button
-                      key={u.id}
-                      type="button"
-                      onClick={() => {
-                        const pass = (u as any).password || '1234';
-                        setLoginIdentifier(u.email);
-                        setLoginPassword(pass);
-                        login(u.email, pass);
-                      }}
-                      className="p-3 bg-slate-800 hover:bg-slate-700/80 border border-slate-700 rounded-2xl text-left transition group"
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-extrabold text-xs text-white group-hover:text-emerald-400 truncate">
-                          {u.nombre}
-                        </span>
-                        <span
-                          className={`text-[9px] px-1.5 py-0.5 rounded font-bold capitalize ${
-                            u.rol === 'propietario' || u.rol === 'administrador'
-                              ? 'bg-emerald-500/20 text-emerald-300'
-                              : 'bg-sky-500/20 text-sky-300'
-                          }`}
-                        >
-                          {u.rol}
-                        </span>
-                      </div>
-                      <div className="text-[10px] text-slate-400 truncate">{u.email}</div>
-                    </button>
-                  ))}
-                </div>
-
-                <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
-                  <button
-                    type="button"
-                    onClick={loadDemoBusiness}
-                    className="text-slate-400 hover:text-emerald-400 text-[11px] font-bold transition flex items-center gap-1"
-                  >
-                    <span>🔄 Cargar Negocio Demo (El Triunfo)</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTab('register')}
-                    className="text-emerald-400 hover:text-emerald-300 text-[11px] font-bold transition"
-                  >
-                    + Registrar otro
-                  </button>
-                </div>
-              </div>
             )}
           </div>
         </div>
