@@ -46,6 +46,7 @@ export const BalancePage: React.FC<BalancePageProps> = ({
     abonosCxC,
     abonosCxP,
     cajaSesion,
+    historialCajas = [],
   } = useAppStore();
 
   // Mode: Transacciones vs Cierres de caja
@@ -129,7 +130,7 @@ export const BalancePage: React.FC<BalancePageProps> = ({
 
   const gananciaEstimada = totalVentas - costoTotalVentas;
 
-  // Unify Transactions
+  // Unify Transactions (ventas + gastos + abonos CxC + abonos CxP)
   const transaccionesUnificadas = useMemo(() => {
     const list: {
       id: string;
@@ -164,8 +165,33 @@ export const BalancePage: React.FC<BalancePageProps> = ({
       });
     });
 
+    // Abonos recibidos de clientes (CxC) = ingresos de efectivo
+    abonosCxCFiltrados.forEach((a) => {
+      list.push({
+        id: a.id,
+        tipo: 'ingreso',
+        concepto: `Abono recibido (Cuenta por Cobrar)`,
+        valor: a.monto,
+        medioPago: a.medio_pago,
+        fecha: a.created_at,
+      });
+    });
+
+    // Abonos pagados a proveedores (CxP) = egresos de efectivo
+    const abonosCxPFiltrados = abonosCxP.filter((a) => isDateInFilter(a.created_at));
+    abonosCxPFiltrados.forEach((a) => {
+      list.push({
+        id: a.id,
+        tipo: 'egreso',
+        concepto: `Abono pagado a proveedor (Cuenta por Pagar)`,
+        valor: a.monto,
+        medioPago: a.medio_pago,
+        fecha: a.created_at,
+      });
+    });
+
     return list.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
-  }, [ventasFiltradas, gastosFiltrados]);
+  }, [ventasFiltradas, gastosFiltrados, abonosCxCFiltrados, abonosCxP, selectedDate, periodoFiltro]);
 
   const transaccionesFiltradas = useMemo(() => {
     return transaccionesUnificadas.filter((t) => {
@@ -313,254 +339,347 @@ export const BalancePage: React.FC<BalancePageProps> = ({
           </div>
         </div>
 
-        {/* 3. THREE STAT CARDS (EXACT TREINTA LAYOUT) */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Card 1: Balance */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex items-center gap-4">
-            <div className="w-14 h-14 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold shrink-0">
-              <TrendingUp className="w-7 h-7" />
-            </div>
-            <div>
-              <div className="text-xs font-bold text-slate-500">Balance</div>
-              <div className="text-2xl font-black text-slate-900 tracking-tight">
-                {formatCurrency(balanceTotal)}
+        {/* VIEW 1: TRANSACCIONES */}
+        {activeMainTab === 'transacciones' && (
+          <>
+            {/* 3. THREE STAT CARDS (EXACT TREINTA LAYOUT) */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Card 1: Balance */}
+              <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex items-center gap-4">
+                <div className="w-14 h-14 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold shrink-0">
+                  <TrendingUp className="w-7 h-7" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-slate-500">Balance</div>
+                  <div className="text-2xl font-black text-slate-900 tracking-tight">
+                    {formatCurrency(balanceTotal)}
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 2: Ventas totales */}
+              <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex items-center gap-4">
+                <div className="w-14 h-14 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold shrink-0">
+                  <DollarSign className="w-7 h-7" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-slate-500">Ventas totales</div>
+                  <div className="text-2xl font-black text-[#10B981] tracking-tight">
+                    {formatCurrency(totalVentas)}
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 3: Gastos totales */}
+              <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex items-center gap-4">
+                <div className="w-14 h-14 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center font-bold shrink-0">
+                  <Receipt className="w-7 h-7" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-slate-500">Gastos totales</div>
+                  <div className="text-2xl font-black text-rose-600 tracking-tight">
+                    {formatCurrency(totalGastos)}
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Card 2: Ventas totales */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex items-center gap-4">
-            <div className="w-14 h-14 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold shrink-0">
-              <DollarSign className="w-7 h-7" />
-            </div>
-            <div>
-              <div className="text-xs font-bold text-slate-500">Ventas totales</div>
-              <div className="text-2xl font-black text-[#10B981] tracking-tight">
-                {formatCurrency(totalVentas)}
+            {/* 4. SUB-TABS: Ingresos | Egresos | Por cobrar | Por pagar */}
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="flex items-center justify-around border-b border-slate-200 bg-white">
+                <button
+                  onClick={() => setActiveSubTab('ingresos')}
+                  className={`py-4 px-6 text-sm font-extrabold transition-all relative ${
+                    activeSubTab === 'ingresos'
+                      ? 'text-slate-950 border-b-2 border-slate-950'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  Ingresos ({ventasFiltradas.length})
+                </button>
+
+                <button
+                  onClick={() => setActiveSubTab('egresos')}
+                  className={`py-4 px-6 text-sm font-extrabold transition-all relative ${
+                    activeSubTab === 'egresos'
+                      ? 'text-slate-950 border-b-2 border-slate-950'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  Egresos ({gastosFiltrados.length})
+                </button>
+
+                <button
+                  onClick={() => setActiveSubTab('por_cobrar')}
+                  className={`py-4 px-6 text-sm font-extrabold transition-all relative ${
+                    activeSubTab === 'por_cobrar'
+                      ? 'text-slate-950 border-b-2 border-slate-950'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  Por cobrar ({cuentasPorCobrar.filter((c) => c.estado !== 'pagada').length})
+                </button>
+
+                <button
+                  onClick={() => setActiveSubTab('por_pagar')}
+                  className={`py-4 px-6 text-sm font-extrabold transition-all relative ${
+                    activeSubTab === 'por_pagar'
+                      ? 'text-slate-950 border-b-2 border-slate-950'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  Por pagar ({cuentasPorPagar.filter((c) => c.estado !== 'pagada').length})
+                </button>
+              </div>
+
+              {/* Table Content */}
+              <div className="p-2">
+                {['ingresos', 'egresos'].includes(activeSubTab) && (
+                  transaccionesFiltradas.length === 0 ? (
+                    <div className="py-12 text-center text-slate-400">
+                      <Receipt className="w-10 h-10 mx-auto text-slate-300 mb-2" />
+                      <p className="font-semibold text-xs">No hay registros para este período</p>
+                    </div>
+                  ) : (
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="bg-slate-50/70 text-slate-500 font-extrabold uppercase border-b border-slate-100">
+                        <tr>
+                          <th className="py-3.5 px-6">Concepto</th>
+                          <th className="py-3.5 px-6 text-right">Valor</th>
+                          <th className="py-3.5 px-6 text-center">Medio de pago</th>
+                          <th className="py-3.5 px-6 text-right">Fecha y hora</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {transaccionesFiltradas.map((t) => (
+                          <tr key={t.id} className="hover:bg-slate-50 transition">
+                            <td className="py-4 px-6">
+                              <div className="flex items-center gap-3">
+                                <div
+                                  className={`p-2 rounded-xl shrink-0 ${
+                                    t.tipo === 'ingreso'
+                                      ? 'bg-emerald-50 text-emerald-600'
+                                      : 'bg-rose-50 text-rose-600'
+                                  }`}
+                                >
+                                  {t.tipo === 'ingreso' ? (
+                                    <ArrowUpRight className="w-4 h-4" />
+                                  ) : (
+                                    <ArrowDownLeft className="w-4 h-4" />
+                                  )}
+                                </div>
+                                <div>
+                                  <div className="font-extrabold text-slate-900 text-sm">
+                                    {t.concepto}
+                                  </div>
+                                  {t.folio && (
+                                    <div className="text-[10px] text-slate-400 font-mono">
+                                      Folio: {t.folio}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+
+                            <td
+                              className={`py-4 px-6 text-right font-black text-sm ${
+                                t.tipo === 'ingreso' ? 'text-emerald-700' : 'text-rose-600'
+                              }`}
+                            >
+                              {t.tipo === 'ingreso' ? '+' : '-'} {formatCurrency(t.valor)}
+                            </td>
+
+                            <td className="py-4 px-6 text-center">
+                              <span className="capitalize px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-[11px] font-bold">
+                                {t.medioPago}
+                              </span>
+                            </td>
+
+                            <td className="py-4 px-6 text-right text-slate-500 font-medium">
+                              {formatDateTime(t.fecha)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )
+                )}
+
+                {/* Sub-tab: Por Cobrar */}
+                {activeSubTab === 'por_cobrar' && (
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-slate-50/70 text-slate-500 font-extrabold uppercase border-b border-slate-100">
+                      <tr>
+                        <th className="py-3.5 px-6">Cliente</th>
+                        <th className="py-3.5 px-6 text-right">Total Fiado</th>
+                        <th className="py-3.5 px-6 text-right">Saldo Pendiente</th>
+                        <th className="py-3.5 px-6 text-center">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {cuentasPorCobrar.map((c) => (
+                        <tr key={c.id} className="hover:bg-slate-50">
+                          <td className="py-4 px-6 font-extrabold text-slate-900 text-sm">
+                            {c.cliente?.nombre}
+                          </td>
+                          <td className="py-4 px-6 text-right text-slate-600 font-bold">
+                            {formatCurrency(c.monto_total)}
+                          </td>
+                          <td className="py-4 px-6 text-right font-black text-amber-600 text-sm">
+                            {formatCurrency(c.saldo_pendiente)}
+                          </td>
+                          <td className="py-4 px-6 text-center">
+                            {c.saldo_pendiente > 0 ? (
+                              <button
+                                onClick={() => setSelectedCuenta({ tipo: 'cobrar', cuenta: c })}
+                                className="px-4 py-1.5 bg-[#10B981] hover:bg-emerald-600 text-white font-extrabold rounded-xl text-xs shadow-sm transition"
+                              >
+                                Registrar Abono
+                              </button>
+                            ) : (
+                              <span className="text-emerald-600 font-extrabold">Pagado ✓</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+
+                {/* Sub-tab: Por Pagar */}
+                {activeSubTab === 'por_pagar' && (
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-slate-50/70 text-slate-500 font-extrabold uppercase border-b border-slate-100">
+                      <tr>
+                        <th className="py-3.5 px-6">Proveedor</th>
+                        <th className="py-3.5 px-6 text-right">Total Deuda</th>
+                        <th className="py-3.5 px-6 text-right">Saldo Pendiente</th>
+                        <th className="py-3.5 px-6 text-center">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {cuentasPorPagar.map((c) => (
+                        <tr key={c.id} className="hover:bg-slate-50">
+                          <td className="py-4 px-6 font-extrabold text-slate-900 text-sm">
+                            {c.proveedor?.nombre}
+                          </td>
+                          <td className="py-4 px-6 text-right text-slate-600 font-bold">
+                            {formatCurrency(c.monto_total)}
+                          </td>
+                          <td className="py-4 px-6 text-right font-black text-rose-600 text-sm">
+                            {formatCurrency(c.saldo_pendiente)}
+                          </td>
+                          <td className="py-4 px-6 text-center">
+                            {c.saldo_pendiente > 0 ? (
+                              <button
+                                onClick={() => setSelectedCuenta({ tipo: 'pagar', cuenta: c })}
+                                className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-xl text-xs shadow-sm transition"
+                              >
+                                Pagar Abono
+                              </button>
+                            ) : (
+                              <span className="text-emerald-600 font-extrabold">Saldado ✓</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </div>
-          </div>
+          </>
+        )}
 
-          {/* Card 3: Gastos totales */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex items-center gap-4">
-            <div className="w-14 h-14 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center font-bold shrink-0">
-              <Receipt className="w-7 h-7" />
-            </div>
-            <div>
-              <div className="text-xs font-bold text-slate-500">Gastos totales</div>
-              <div className="text-2xl font-black text-rose-600 tracking-tight">
-                {formatCurrency(totalGastos)}
+        {/* VIEW 2: CIERRES DE CAJA (BUG-09) */}
+        {activeMainTab === 'cierres' && (
+          <div className="space-y-6">
+            {/* Active shift summary if open */}
+            {cajaSesion && cajaSesion.estado === 'abierta' && (
+              <div className="bg-emerald-50 rounded-3xl p-6 border border-emerald-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-black text-emerald-900">
+                      Turno de Caja Actualmente Abierto
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black uppercase">
+                      En Curso
+                    </span>
+                  </div>
+                  <p className="text-xs text-emerald-700 font-medium mt-1">
+                    Apertura: {formatDateTime(cajaSesion.fecha_apertura)} • Base inicial: <strong>{formatCurrency(cajaSesion.monto_inicial)}</strong>
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-6">
+                  <div className="text-right">
+                    <div className="text-[11px] font-bold text-emerald-800">Efectivo Esperado</div>
+                    <div className="text-xl font-black text-emerald-900">{formatCurrency(cajaSesion.monto_esperado)}</div>
+                  </div>
+                  <button
+                    onClick={onOpenCashModal}
+                    className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-2xl text-xs shadow-md transition"
+                  >
+                    Arqueo / Cerrar Caja
+                  </button>
+                </div>
               </div>
-            </div>
-          </div>
-        </div>
+            )}
 
-        {/* 4. SUB-TABS: Ingresos | Egresos | Por cobrar | Por pagar */}
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="flex items-center justify-around border-b border-slate-200 bg-white">
-            <button
-              onClick={() => setActiveSubTab('ingresos')}
-              className={`py-4 px-6 text-sm font-extrabold transition-all relative ${
-                activeSubTab === 'ingresos'
-                  ? 'text-slate-950 border-b-2 border-slate-950'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              Ingresos ({ventasFiltradas.length})
-            </button>
+            {/* Closures Table */}
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                <h3 className="font-extrabold text-sm text-slate-900">Historial de Turnos y Cierres de Caja</h3>
+                <span className="text-xs text-slate-500 font-bold">{historialCajas.length} cierres registrados</span>
+              </div>
 
-            <button
-              onClick={() => setActiveSubTab('egresos')}
-              className={`py-4 px-6 text-sm font-extrabold transition-all relative ${
-                activeSubTab === 'egresos'
-                  ? 'text-slate-950 border-b-2 border-slate-950'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              Egresos ({gastosFiltrados.length})
-            </button>
-
-            <button
-              onClick={() => setActiveSubTab('por_cobrar')}
-              className={`py-4 px-6 text-sm font-extrabold transition-all relative ${
-                activeSubTab === 'por_cobrar'
-                  ? 'text-slate-950 border-b-2 border-slate-950'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              Por cobrar ({cuentasPorCobrar.filter((c) => c.estado !== 'pagada').length})
-            </button>
-
-            <button
-              onClick={() => setActiveSubTab('por_pagar')}
-              className={`py-4 px-6 text-sm font-extrabold transition-all relative ${
-                activeSubTab === 'por_pagar'
-                  ? 'text-slate-950 border-b-2 border-slate-950'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              Por pagar ({cuentasPorPagar.filter((c) => c.estado !== 'pagada').length})
-            </button>
-          </div>
-
-          {/* Table Content */}
-          <div className="p-2">
-            {['ingresos', 'egresos'].includes(activeSubTab) && (
-              transaccionesFiltradas.length === 0 ? (
+              {historialCajas.length === 0 ? (
                 <div className="py-12 text-center text-slate-400">
-                  <Receipt className="w-10 h-10 mx-auto text-slate-300 mb-2" />
-                  <p className="font-semibold text-xs">No hay registros para este período</p>
+                  <Store className="w-10 h-10 mx-auto text-slate-300 mb-2" />
+                  <p className="font-semibold text-xs">No hay cierres de caja finalizados todavía</p>
                 </div>
               ) : (
                 <table className="w-full text-left text-xs border-collapse">
-                  <thead className="bg-slate-50/70 text-slate-500 font-extrabold uppercase border-b border-slate-100">
+                  <thead className="bg-slate-50 text-slate-500 font-extrabold uppercase border-b border-slate-100">
                     <tr>
-                      <th className="py-3.5 px-6">Concepto</th>
-                      <th className="py-3.5 px-6 text-right">Valor</th>
-                      <th className="py-3.5 px-6 text-center">Medio de pago</th>
-                      <th className="py-3.5 px-6 text-right">Fecha y hora</th>
+                      <th className="py-3.5 px-6">Fecha Cierre</th>
+                      <th className="py-3.5 px-6 text-right">Base Inicial</th>
+                      <th className="py-3.5 px-6 text-right">Ventas Efectivo</th>
+                      <th className="py-3.5 px-6 text-right">Efectivo Esperado</th>
+                      <th className="py-3.5 px-6 text-right">Efectivo Real</th>
+                      <th className="py-3.5 px-6 text-center">Diferencia</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {transaccionesFiltradas.map((t) => (
-                      <tr key={t.id} className="hover:bg-slate-50 transition">
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    {historialCajas.map((c, i) => (
+                      <tr key={c.id || i} className="hover:bg-slate-50">
                         <td className="py-4 px-6">
-                          <div className="flex items-center gap-3">
-                            <div
-                              className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                                t.tipo === 'ingreso'
-                                  ? 'bg-emerald-50 text-emerald-600'
-                                  : 'bg-rose-50 text-rose-600'
-                              }`}
-                            >
-                              {t.tipo === 'ingreso' ? (
-                                <ArrowUpRight className="w-4 h-4" />
-                              ) : (
-                                <Receipt className="w-4 h-4" />
-                              )}
-                            </div>
-                            <div>
-                              <span className="font-extrabold text-slate-900 text-sm">
-                                {t.concepto}
-                              </span>
-                              {t.folio && (
-                                <span className="ml-2 font-mono text-[10px] text-slate-400">
-                                  #{t.folio}
-                                </span>
-                              )}
-                            </div>
-                          </div>
+                          <div className="font-black text-slate-900">{formatDateTime(c.fecha_cierre)}</div>
+                          <div className="text-[10px] text-slate-400">Apertura: {formatDateTime(c.fecha_apertura)}</div>
                         </td>
-
-                        <td className="py-4 px-6 text-right font-black text-sm">
-                          <span
-                            className={
-                              t.tipo === 'ingreso' ? 'text-[#10B981]' : 'text-slate-900'
-                            }
-                          >
-                            {formatCurrency(t.valor)}
-                          </span>
-                        </td>
-
+                        <td className="py-4 px-6 text-right font-bold text-slate-600">{formatCurrency(c.monto_inicial)}</td>
+                        <td className="py-4 px-6 text-right font-bold text-emerald-700">+{formatCurrency(c.total_ventas_efectivo)}</td>
+                        <td className="py-4 px-6 text-right font-extrabold text-slate-800">{formatCurrency(c.monto_esperado)}</td>
+                        <td className="py-4 px-6 text-right font-black text-slate-900">{formatCurrency(c.monto_real || c.monto_esperado)}</td>
                         <td className="py-4 px-6 text-center">
-                          <span className="capitalize font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-full text-[11px]">
-                            {t.medioPago}
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-black ${
+                            (c.diferencia || 0) === 0
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : (c.diferencia || 0) > 0
+                              ? 'bg-sky-100 text-sky-800'
+                              : 'bg-rose-100 text-rose-800'
+                          }`}>
+                            {(c.diferencia || 0) === 0 ? 'Exacto $0' : formatCurrency(c.diferencia || 0)}
                           </span>
-                        </td>
-
-                        <td className="py-4 px-6 text-right text-slate-500 font-semibold text-xs">
-                          {formatDateTime(t.fecha)}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              )
-            )}
-
-            {/* Sub-tab: Por Cobrar */}
-            {activeSubTab === 'por_cobrar' && (
-              <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-slate-50/70 text-slate-500 font-extrabold uppercase border-b border-slate-100">
-                  <tr>
-                    <th className="py-3.5 px-6">Cliente</th>
-                    <th className="py-3.5 px-6 text-right">Total Fiado</th>
-                    <th className="py-3.5 px-6 text-right">Saldo Pendiente</th>
-                    <th className="py-3.5 px-6 text-center">Acción</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {cuentasPorCobrar.map((c) => (
-                    <tr key={c.id} className="hover:bg-slate-50">
-                      <td className="py-4 px-6 font-extrabold text-slate-900 text-sm">
-                        {c.cliente?.nombre}
-                      </td>
-                      <td className="py-4 px-6 text-right text-slate-600 font-bold">
-                        {formatCurrency(c.monto_total)}
-                      </td>
-                      <td className="py-4 px-6 text-right font-black text-amber-600 text-sm">
-                        {formatCurrency(c.saldo_pendiente)}
-                      </td>
-                      <td className="py-4 px-6 text-center">
-                        {c.saldo_pendiente > 0 ? (
-                          <button
-                            onClick={() => setSelectedCuenta({ tipo: 'cobrar', cuenta: c })}
-                            className="px-4 py-1.5 bg-[#10B981] hover:bg-emerald-600 text-white font-extrabold rounded-xl text-xs shadow-sm transition"
-                          >
-                            Registrar Abono
-                          </button>
-                        ) : (
-                          <span className="text-emerald-600 font-extrabold">Pagado ✓</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-
-            {/* Sub-tab: Por Pagar */}
-            {activeSubTab === 'por_pagar' && (
-              <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-slate-50/70 text-slate-500 font-extrabold uppercase border-b border-slate-100">
-                  <tr>
-                    <th className="py-3.5 px-6">Proveedor</th>
-                    <th className="py-3.5 px-6 text-right">Total Deuda</th>
-                    <th className="py-3.5 px-6 text-right">Saldo Pendiente</th>
-                    <th className="py-3.5 px-6 text-center">Acción</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {cuentasPorPagar.map((c) => (
-                    <tr key={c.id} className="hover:bg-slate-50">
-                      <td className="py-4 px-6 font-extrabold text-slate-900 text-sm">
-                        {c.proveedor?.nombre}
-                      </td>
-                      <td className="py-4 px-6 text-right text-slate-600 font-bold">
-                        {formatCurrency(c.monto_total)}
-                      </td>
-                      <td className="py-4 px-6 text-right font-black text-rose-600 text-sm">
-                        {formatCurrency(c.saldo_pendiente)}
-                      </td>
-                      <td className="py-4 px-6 text-center">
-                        {c.saldo_pendiente > 0 ? (
-                          <button
-                            onClick={() => setSelectedCuenta({ tipo: 'pagar', cuenta: c })}
-                            className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-xl text-xs shadow-sm transition"
-                          >
-                            Pagar Abono
-                          </button>
-                        ) : (
-                          <span className="text-emerald-600 font-extrabold">Saldado ✓</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Abono Modal */}

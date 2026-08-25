@@ -260,7 +260,7 @@ export const PosPage: React.FC<PosPageProps> = ({
             <div className="space-y-3">
               {carrito.map((item, index) => (
                 <div
-                  key={index}
+                  key={item.producto_id ? `${item.producto_id}-${index}` : `cart-${index}`}
                   className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2"
                 >
                   <div className="flex items-start justify-between gap-2">

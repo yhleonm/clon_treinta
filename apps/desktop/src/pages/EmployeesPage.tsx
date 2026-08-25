@@ -13,10 +13,24 @@ import { Usuario } from '@treinta/shared';
 import { EmployeeModal } from '../components/employees/EmployeeModal';
 
 export const EmployeesPage: React.FC = () => {
-  const { usuarios } = useAppStore();
+  const { usuarios, usuarioActual } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [isEmployeeModalOpen, setIsEmployeeModalOpen] = useState(false);
   const [employeeToEdit, setEmployeeToEdit] = useState<Usuario | null>(null);
+
+  const isAdmin = usuarioActual.rol === 'administrador' || usuarioActual.rol === 'propietario';
+
+  if (!isAdmin) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-slate-50">
+        <Shield className="w-16 h-16 text-rose-500 mb-3" />
+        <h3 className="text-lg font-black text-slate-900">Acceso Restringido</h3>
+        <p className="text-xs text-slate-500 max-w-sm mt-1">
+          Solo los administradores o el propietario del negocio pueden gestionar los empleados y sus permisos.
+        </p>
+      </div>
+    );
+  }
 
   const filteredUsuarios = usuarios.filter(
     (u) =>

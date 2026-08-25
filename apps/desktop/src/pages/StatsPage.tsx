@@ -15,19 +15,50 @@ import { useAppStore } from '../store/useAppStore';
 import { formatCurrency } from '@treinta/shared';
 
 export const StatsPage: React.FC = () => {
-  const { ventas, gastos, productos, categorias } = useAppStore();
+  const { ventas, gastos, productos, categorias, usuarioActual } = useAppStore();
   const [timeRange, setTimeRange] = useState<'semana' | 'mes' | 'ano'>('mes');
 
+  const isAdmin = usuarioActual.rol === 'administrador' || usuarioActual.rol === 'propietario';
+
+  const isDateInRange = (dateStr: string) => {
+    const d = new Date(dateStr);
+    const now = new Date();
+
+    if (timeRange === 'semana') {
+      const diffTime = Math.abs(now.getTime() - d.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays <= 7;
+    }
+
+    if (timeRange === 'mes') {
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }
+
+    if (timeRange === 'ano') {
+      return d.getFullYear() === now.getFullYear();
+    }
+
+    return true;
+  };
+
+  const ventasFiltradas = useMemo(() => {
+    return ventas.filter((v) => isDateInRange(v.created_at));
+  }, [ventas, timeRange]);
+
+  const gastosFiltrados = useMemo(() => {
+    return gastos.filter((g) => isDateInRange(g.fecha));
+  }, [gastos, timeRange]);
+
   // Metrics
-  const totalVentas = ventas.reduce((sum, v) => sum + v.total, 0);
-  const totalGastos = gastos.reduce((sum, g) => sum + g.valor, 0);
-  const ticketPromedio = ventas.length > 0 ? Math.round(totalVentas / ventas.length) : 0;
+  const totalVentas = ventasFiltradas.reduce((sum, v) => sum + v.total, 0);
+  const totalGastos = gastosFiltrados.reduce((sum, g) => sum + g.valor, 0);
+  const ticketPromedio = ventasFiltradas.length > 0 ? Math.round(totalVentas / ventasFiltradas.length) : 0;
 
   // Best selling products calculation
   const topProducts = useMemo(() => {
     const productCounts: { [nombre: string]: { cantidad: number; total: number } } = {};
 
-    ventas.forEach((v) => {
+    ventasFiltradas.forEach((v) => {
       (v.items || []).forEach((item) => {
         if (!productCounts[item.nombre_producto]) {
           productCounts[item.nombre_producto] = { cantidad: 0, total: 0 };
@@ -42,7 +73,7 @@ export const StatsPage: React.FC = () => {
       .sort((a, b) => b.cantidad - a.cantidad);
 
     return sorted.slice(0, 5);
-  }, [ventas]);
+  }, [ventasFiltradas]);
 
   // Payment methods breakdown
   const paymentBreakdown = useMemo(() => {
@@ -54,7 +85,7 @@ export const StatsPage: React.FC = () => {
       credito: 0,
     };
 
-    ventas.forEach((v) => {
+    ventasFiltradas.forEach((v) => {
       if (counts[v.medio_pago] !== undefined) {
         counts[v.medio_pago] += v.total;
       } else {
@@ -63,7 +94,19 @@ export const StatsPage: React.FC = () => {
     });
 
     return counts;
-  }, [ventas]);
+  }, [ventasFiltradas]);
+
+  if (!isAdmin) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-slate-50">
+        <TrendingUp className="w-16 h-16 text-rose-500 mb-3" />
+        <h3 className="text-lg font-black text-slate-900">Acceso Restringido</h3>
+        <p className="text-xs text-slate-500 max-w-sm mt-1">
+          Solo los administradores o el propietario del negocio pueden consultar los reportes y estadísticas de ventas.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden select-none bg-slate-50">

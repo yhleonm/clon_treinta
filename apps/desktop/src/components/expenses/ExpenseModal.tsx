@@ -46,6 +46,26 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose }) =
   const [proveedorId, setProveedorId] = useState<string>('');
   const [medioPago, setMedioPago] = useState<MedioPago>('efectivo');
 
+  React.useEffect(() => {
+    if (isOpen) {
+      setEstadoPago('pagada');
+      setFecha(new Date().toISOString().split('T')[0] || '');
+      setCategoria('Compra de productos e insumos');
+      setSupplyItems([]);
+      setIsSupplyModalOpen(false);
+      setValor('');
+      setNombreGasto('');
+      setProveedorId('');
+      setMedioPago('efectivo');
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const isCompraInsumos = categoria === 'Compra de productos e insumos';
@@ -105,9 +125,15 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose }) =
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex justify-end select-none animate-in fade-in duration-150">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex justify-end select-none animate-in fade-in duration-150"
+    >
       {/* Slide-over Drawer Card */}
-      <div className="bg-white w-full max-w-lg h-full overflow-y-auto shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200">
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white w-full max-w-lg h-full overflow-y-auto shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200"
+      >
         {/* Header */}
         <div>
           <div className="p-6 pb-2 flex items-center justify-between border-b border-slate-100">

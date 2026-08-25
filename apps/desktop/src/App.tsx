@@ -26,7 +26,7 @@ export function App() {
 
   // If role changes to vendedor and current tab is restricted, redirect to pos
   useEffect(() => {
-    if (!isAdmin && ['balance', 'expenses', 'credit', 'employees'].includes(currentTab)) {
+    if (!isAdmin && ['balance', 'expenses', 'credit', 'employees', 'invoicing', 'stats'].includes(currentTab)) {
       setCurrentTab('pos');
     }
   }, [isAdmin, currentTab]);

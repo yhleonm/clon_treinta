@@ -125,48 +125,68 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
           )}
 
           {/* 3. Facturación electrónica 👑 */}
-          <button
-            onClick={() => onSelectTab('invoicing')}
-            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-bold transition ${
-              currentTab === 'invoicing'
-                ? 'bg-emerald-600 text-white shadow-md font-black'
-                : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <FileText className="w-4 h-4 shrink-0" />
-              <span>Facturación electrónica</span>
-            </div>
-            <Crown
-              className={`w-3.5 h-3.5 ${
+          {isAdmin ? (
+            <button
+              onClick={() => onSelectTab('invoicing')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-bold transition ${
                 currentTab === 'invoicing'
-                  ? 'text-amber-300 fill-amber-300'
-                  : 'text-emerald-600 fill-emerald-600'
+                  ? 'bg-emerald-600 text-white shadow-md font-black'
+                  : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
               }`}
-            />
-          </button>
+            >
+              <div className="flex items-center gap-3">
+                <FileText className="w-4 h-4 shrink-0" />
+                <span>Facturación electrónica</span>
+              </div>
+              <Crown
+                className={`w-3.5 h-3.5 ${
+                  currentTab === 'invoicing'
+                    ? 'text-amber-300 fill-amber-300'
+                    : 'text-emerald-600 fill-emerald-600'
+                }`}
+              />
+            </button>
+          ) : (
+            <div className="flex items-center justify-between px-3.5 py-2.5 text-slate-400 text-xs font-medium opacity-50 cursor-not-allowed">
+              <div className="flex items-center gap-3">
+                <FileText className="w-4 h-4 shrink-0" />
+                <span>Facturación electrónica</span>
+              </div>
+              <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded">🔒</span>
+            </div>
+          )}
 
           {/* 4. Estadísticas 👑 */}
-          <button
-            onClick={() => onSelectTab('stats')}
-            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-bold transition ${
-              currentTab === 'stats'
-                ? 'bg-emerald-600 text-white shadow-md font-black'
-                : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <TrendingUp className="w-4 h-4 shrink-0" />
-              <span>Estadísticas</span>
-            </div>
-            <Crown
-              className={`w-3.5 h-3.5 ${
+          {isAdmin ? (
+            <button
+              onClick={() => onSelectTab('stats')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-bold transition ${
                 currentTab === 'stats'
-                  ? 'text-amber-300 fill-amber-300'
-                  : 'text-emerald-600 fill-emerald-600'
+                  ? 'bg-emerald-600 text-white shadow-md font-black'
+                  : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
               }`}
-            />
-          </button>
+            >
+              <div className="flex items-center gap-3">
+                <TrendingUp className="w-4 h-4 shrink-0" />
+                <span>Estadísticas</span>
+              </div>
+              <Crown
+                className={`w-3.5 h-3.5 ${
+                  currentTab === 'stats'
+                    ? 'text-amber-300 fill-amber-300'
+                    : 'text-emerald-600 fill-emerald-600'
+                }`}
+              />
+            </button>
+          ) : (
+            <div className="flex items-center justify-between px-3.5 py-2.5 text-slate-400 text-xs font-medium opacity-50 cursor-not-allowed">
+              <div className="flex items-center gap-3">
+                <TrendingUp className="w-4 h-4 shrink-0" />
+                <span>Estadísticas</span>
+              </div>
+              <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded">🔒</span>
+            </div>
+          )}
 
           {/* 5. Inventario */}
           <button

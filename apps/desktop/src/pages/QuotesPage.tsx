@@ -88,6 +88,16 @@ export const QuotesPage: React.FC = () => {
     setCantidad(1);
   };
 
+  const handleCloseModal = () => {
+    setIsCreateModalOpen(false);
+    setClienteNombre('');
+    setClienteTelefono('');
+    setSelectedProductId('');
+    setCantidad(1);
+    setItemsTemp([]);
+    setNotas('');
+  };
+
   const handleCreateQuote = (e: React.FormEvent) => {
     e.preventDefault();
     if (!clienteNombre.trim() || itemsTemp.length === 0) return;
@@ -107,11 +117,7 @@ export const QuotesPage: React.FC = () => {
     };
 
     setCotizaciones([nuevaCot, ...cotizaciones]);
-    setIsCreateModalOpen(false);
-    setClienteNombre('');
-    setClienteTelefono('');
-    setItemsTemp([]);
-    setNotas('');
+    handleCloseModal();
   };
 
   const handleConvertToSale = (cot: Cotizacion) => {
@@ -215,7 +221,7 @@ export const QuotesPage: React.FC = () => {
               {/* Items preview */}
               <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 space-y-1 text-xs">
                 {cot.items.map((item, i) => (
-                  <div key={i} className="flex justify-between text-slate-700">
+                  <div key={item.producto.id ? `${item.producto.id}-${i}` : i} className="flex justify-between text-slate-700">
                     <span>
                       {item.cantidad}x {item.producto.nombre}
                     </span>
@@ -263,7 +269,7 @@ export const QuotesPage: React.FC = () => {
                 Nueva Cotización Comercial
               </h3>
               <button
-                onClick={() => setIsCreateModalOpen(false)}
+                onClick={handleCloseModal}
                 className="p-1.5 hover:bg-slate-200/60 text-slate-500 rounded-full"
               >
                 ✕
@@ -330,7 +336,7 @@ export const QuotesPage: React.FC = () => {
                 {itemsTemp.length > 0 && (
                   <div className="space-y-1 pt-2 border-t border-slate-200">
                     {itemsTemp.map((item, idx) => (
-                      <div key={idx} className="flex justify-between items-center text-slate-800">
+                      <div key={item.producto.id ? `${item.producto.id}-${idx}` : idx} className="flex justify-between items-center text-slate-800">
                         <span>{item.cantidad}x {item.producto.nombre}</span>
                         <span className="font-black">{formatCurrency(item.subtotal)}</span>
                       </div>
@@ -353,7 +359,7 @@ export const QuotesPage: React.FC = () => {
               <div className="pt-3 border-t border-slate-100 flex justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setIsCreateModalOpen(false)}
+                  onClick={handleCloseModal}
                   className="px-4 py-2 font-bold text-slate-600 hover:bg-slate-100 rounded-xl"
                 >
                   Cancelar

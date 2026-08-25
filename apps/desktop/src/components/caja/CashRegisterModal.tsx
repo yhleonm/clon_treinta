@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Wallet,
@@ -26,6 +27,20 @@ export const CashRegisterModal: React.FC<CashRegisterModalProps> = ({
   const [montoReal, setMontoReal] = useState<string>('');
   const [notas, setNotas] = useState<string>('');
 
+  useEffect(() => {
+    if (isOpen) {
+      setMontoInicial('100000');
+      setMontoReal('');
+      setNotas('');
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const isAbierta = cajaSesion && cajaSesion.estado === 'abierta';
@@ -50,9 +65,15 @@ export const CashRegisterModal: React.FC<CashRegisterModalProps> = ({
   const real = Number(montoReal) || 0;
   const diferencia = real - esperado;
 
-  return (
-    <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+  return createPortal(
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-150"
+      >
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
           <div className="flex items-center gap-2.5">
@@ -230,6 +251,7 @@ export const CashRegisterModal: React.FC<CashRegisterModalProps> = ({
           </form>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

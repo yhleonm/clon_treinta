@@ -53,6 +53,27 @@ export const SelectSuppliesModal: React.FC<SelectSuppliesModalProps> = ({
     }
   }, [safeInitialItems, isOpen]);
 
+  // These useMemo hooks MUST be above the early return to respect Rules of Hooks
+  const filteredProducts = useMemo(() => {
+    return (productos || []).filter((p) => {
+      if (!p || !p.activo) return false;
+      const matchCategory =
+        selectedCategory === 'todos' || p.categoria_id === selectedCategory;
+      const matchSearch =
+        searchTerm === '' ||
+        (p.nombre && p.nombre.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (p.sku && p.sku.toLowerCase().includes(searchTerm.toLowerCase()));
+      return matchCategory && matchSearch;
+    });
+  }, [productos, selectedCategory, searchTerm]);
+
+  const totalCalculado = useMemo(() => {
+    return (selectedItems || []).reduce(
+      (sum, item) => sum + (Number(item?.subtotal) || (Number(item?.cantidad || 0) * Number(item?.costoUnitario || 0))),
+      0
+    );
+  }, [selectedItems]);
+
   if (!isOpen) return null;
 
   const handleAddProduct = (producto: Producto) => {
@@ -130,26 +151,6 @@ export const SelectSuppliesModal: React.FC<SelectSuppliesModalProps> = ({
     );
   };
 
-  const filteredProducts = useMemo(() => {
-    return (productos || []).filter((p) => {
-      if (!p || !p.activo) return false;
-      const matchCategory =
-        selectedCategory === 'todos' || p.categoria_id === selectedCategory;
-      const matchSearch =
-        searchTerm === '' ||
-        (p.nombre && p.nombre.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (p.sku && p.sku.toLowerCase().includes(searchTerm.toLowerCase()));
-      return matchCategory && matchSearch;
-    });
-  }, [productos, selectedCategory, searchTerm]);
-
-  const totalCalculado = useMemo(() => {
-    return (selectedItems || []).reduce(
-      (sum, item) => sum + (Number(item?.subtotal) || (Number(item?.cantidad || 0) * Number(item?.costoUnitario || 0))),
-      0
-    );
-  }, [selectedItems]);
-
   const handleFinish = () => {
     const validItems = (selectedItems || []).filter((i) => i && i.producto);
     onConfirm(validItems, totalCalculado);
@@ -157,8 +158,14 @@ export const SelectSuppliesModal: React.FC<SelectSuppliesModalProps> = ({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 select-none animate-in fade-in duration-150">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-6xl h-[90vh] overflow-hidden flex flex-col sm:flex-row border border-slate-200 animate-in zoom-in-95 duration-150">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[100] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 select-none animate-in fade-in duration-150"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-3xl shadow-2xl w-full max-w-6xl h-[90vh] overflow-hidden flex flex-col sm:flex-row border border-slate-200 animate-in zoom-in-95 duration-150"
+      >
         {/* LEFT PRODUCT SELECTION AREA */}
         <div className="flex-1 flex flex-col h-full overflow-hidden border-r border-slate-200">
           {/* Header */}

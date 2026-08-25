@@ -48,7 +48,7 @@ export const InventoryPage: React.FC = () => {
   const costoTotalInventario = useMemo(() => {
     return productos
       .filter((p) => p.activo)
-      .reduce((sum, p) => sum + (p.stock_actual || 0) * (p.costo || 0), 0);
+      .reduce((sum, p) => sum + Math.max(0, p.stock_actual || 0) * (p.costo || 0), 0);
   }, [productos]);
 
   // Filtered Products

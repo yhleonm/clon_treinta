@@ -21,6 +21,7 @@ import {
   generateFolio,
   AbonoCuentaCobrar,
   AbonoCuentaPagar,
+  MovimientoInventario,
 } from '@treinta/shared';
 import {
   INITIAL_NEGOCIO,
@@ -109,8 +110,12 @@ interface AppState {
 
   // Caja / Turno
   cajaSesion: CajaSesion | null;
+  historialCajas: CajaSesion[];
   abrirCaja: (montoInicial: number, notas?: string) => void;
   cerrarCaja: (montoReal: number, notas?: string) => void;
+
+  // Movimientos de Inventario (Kardex)
+  movimientosInventario: MovimientoInventario[];
 
   // Filtro de Balance
   periodoBalance: 'hoy' | 'semana' | 'mes' | 'todo';
@@ -135,7 +140,7 @@ const loadPersistedState = () => {
 const savedState = loadPersistedState();
 
 export const useAppStore = create<AppState>((set, get) => ({
-  isAuthenticated: savedState?.isAuthenticated ?? true, // default true so current session is active, or switchable via logout
+  isAuthenticated: savedState?.isAuthenticated ?? false, // default false — require login on first visit
   negocio: savedState?.negocio || INITIAL_NEGOCIO,
   usuarioActual: savedState?.usuarioActual || INITIAL_USUARIOS[0]!,
   usuarios: savedState?.usuarios || INITIAL_USUARIOS,
@@ -151,24 +156,25 @@ export const useAppStore = create<AppState>((set, get) => ({
         (u.telefono && u.telefono.replace(/\D/g, '').includes(cleanPhone))
     );
 
-    if (found) {
-      set({ usuarioActual: found, isAuthenticated: true });
-      saveState();
-      return { success: true };
+    if (!found) {
+      return {
+        success: false,
+        error: 'Usuario o celular no encontrado en este negocio.',
+      };
     }
 
-    // Default fallback allow login if generic password
-    if (query === 'admin' || query.includes('jackeline') || query.includes('admin')) {
-      const adminUser = state.usuarios.find((u) => u.rol === 'administrador') || INITIAL_USUARIOS[0]!;
-      set({ usuarioActual: adminUser, isAuthenticated: true });
-      saveState();
-      return { success: true };
+    // Verificar contraseña: demo users aceptan PIN '1234', registered users usan su password
+    const storedPass = (found as any).password || '1234'; // default demo PIN
+    if (pass !== storedPass) {
+      return {
+        success: false,
+        error: 'Contraseña o PIN incorrectos.',
+      };
     }
 
-    return {
-      success: false,
-      error: 'Usuario o celular no encontrado en este negocio.',
-    };
+    set({ usuarioActual: found, isAuthenticated: true });
+    saveState();
+    return { success: true };
   },
 
   registerBusiness: (businessName, ownerName, email, pass) => {
@@ -199,6 +205,19 @@ export const useAppStore = create<AppState>((set, get) => ({
       usuarioActual: propietario,
       usuarios: [propietario],
       isAuthenticated: true,
+      // Reset all business data for the new negocio
+      categorias: [],
+      productos: [],
+      ventas: [],
+      gastos: [],
+      carrito: [],
+      clientes: [],
+      proveedores: [],
+      cuentasPorCobrar: [],
+      cuentasPorPagar: [],
+      abonosCxC: [],
+      abonosCxP: [],
+      cajaSesion: null,
     });
     saveState();
     return { success: true };
@@ -380,16 +399,37 @@ export const useAppStore = create<AppState>((set, get) => ({
     saveState();
   },
 
+  movimientosInventario: savedState?.movimientosInventario || [],
+
   ajustarStock: (productoId, cantidad, motivo) => {
-    set((s) => ({
-      productos: s.productos.map((p) => {
-        if (p.id === productoId) {
-          const nuevoStock = p.stock_actual + cantidad;
-          return { ...p, stock_actual: nuevoStock, updated_at: new Date().toISOString() };
-        }
-        return p;
-      }),
-    }));
+    set((s) => {
+      const prod = s.productos.find((p) => p.id === productoId);
+      if (!prod) return s;
+      const nuevoStock = prod.stock_actual + cantidad;
+      const nuevoMov: MovimientoInventario = {
+        id: 'mov-' + Date.now(),
+        negocio_id: s.negocio.id,
+        producto_id: productoId,
+        usuario_id: s.usuarioActual.id,
+        tipo: cantidad >= 0 ? 'ajuste_manual' : 'merma',
+        cantidad: Math.abs(cantidad),
+        stock_anterior: prod.stock_actual,
+        stock_nuevo: nuevoStock,
+        motivo: motivo || 'Ajuste manual de inventario',
+        created_at: new Date().toISOString(),
+        producto: prod,
+        usuario: s.usuarioActual,
+      };
+
+      return {
+        productos: s.productos.map((p) =>
+          p.id === productoId
+            ? { ...p, stock_actual: nuevoStock, updated_at: new Date().toISOString() }
+            : p
+        ),
+        movimientosInventario: [nuevoMov, ...(s.movimientosInventario || [])],
+      };
+    });
     saveState();
   },
 
@@ -467,6 +507,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     const state = get();
     if (state.carrito.length === 0) {
       return { success: false, error: 'El carrito está vacío' };
+    }
+
+    // BUG-07: Prevent credit sales without selecting a client
+    if (medioPago === 'credito' && !clienteId) {
+      return { success: false, error: 'Debe seleccionar un cliente para ventas a crédito (fiado).' };
     }
 
     const subtotal = state.carrito.reduce(
@@ -788,6 +833,12 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   abrirCaja: (montoInicial, notas) => {
     const state = get();
+
+    // BUG-08: Prevent overwriting an active cash register session
+    if (state.cajaSesion && state.cajaSesion.estado === 'abierta') {
+      return; // Caja already open — must close it first
+    }
+
     const nuevaCaja: CajaSesion = {
       id: 'caja-' + Date.now(),
       negocio_id: state.negocio.id,
@@ -806,20 +857,25 @@ export const useAppStore = create<AppState>((set, get) => ({
     saveState();
   },
 
-  cerrarCaja: (montoReal, notas) => {
-    const state = get();
-    if (!state.cajaSesion) return;
+  historialCajas: savedState?.historialCajas || [],
 
-    const diferencia = montoReal - state.cajaSesion.monto_esperado;
-    const cajaCerrada: CajaSesion = {
-      ...state.cajaSesion,
-      fecha_cierre: new Date().toISOString(),
-      monto_real: montoReal,
-      diferencia,
-      estado: 'cerrada',
-      notas: notas || state.cajaSesion.notas,
-    };
-    set({ cajaSesion: cajaCerrada });
+  cerrarCaja: (montoReal, notas) => {
+    set((s) => {
+      if (!s.cajaSesion) return s;
+      const diferencia = montoReal - s.cajaSesion.monto_esperado;
+      const cajaCerrada: CajaSesion = {
+        ...s.cajaSesion,
+        fecha_cierre: new Date().toISOString(),
+        monto_real: montoReal,
+        diferencia,
+        estado: 'cerrada',
+        notas: notas || s.cajaSesion.notas,
+      };
+      return {
+        cajaSesion: cajaCerrada,
+        historialCajas: [cajaCerrada, ...(s.historialCajas || [])],
+      };
+    });
     saveState();
   },
 
@@ -828,8 +884,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   setPeriodoBalance: (periodo) => set({ periodoBalance: periodo }),
 }));
 
+let saveTimeout: any = null;
+
 function saveState() {
-  setTimeout(() => {
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
+  }
+  saveTimeout = setTimeout(() => {
     try {
       const state = useAppStore.getState();
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
@@ -848,6 +909,8 @@ function saveState() {
         clientes: state.clientes,
         proveedores: state.proveedores,
         cajaSesion: state.cajaSesion,
+        historialCajas: state.historialCajas,
+        movimientosInventario: state.movimientosInventario,
       }));
     } catch (e) {
       console.error('Error saving state:', e);

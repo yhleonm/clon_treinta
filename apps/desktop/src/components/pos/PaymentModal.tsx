@@ -33,6 +33,23 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [notas, setNotas] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string>('');
 
+  React.useEffect(() => {
+    if (isOpen) {
+      setMedioPago('efectivo');
+      setClienteId('');
+      setDescuento(0);
+      setMontoRecibido('');
+      setNotas('');
+      setErrorMsg('');
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const subtotal = carrito.reduce(
@@ -65,6 +82,11 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const handleConfirmarVenta = () => {
     setErrorMsg('');
 
+    if (Number(descuento) > subtotal) {
+      setErrorMsg('El descuento no puede ser superior al subtotal de la venta');
+      return;
+    }
+
     if (medioPago === 'credito' && !clienteId) {
       setErrorMsg('Para ventas a crédito (Fiado) es obligatorio seleccionar un cliente');
       return;
@@ -91,8 +113,14 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 select-none animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-150">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 select-none animate-in fade-in duration-150"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-150"
+      >
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
           <div>
