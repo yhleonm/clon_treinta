@@ -4,8 +4,9 @@
  * @param currency - Código de moneda (ej: 'COP')
  * @returns Cadena formateada (ej: "$ 24.500")
  */
-export function formatCurrency(amount: number, currency: string = 'COP'): string {
-  const rounded = Math.round(amount);
+export function formatCurrency(amount?: number | null, currency: string = 'COP'): string {
+  const safeAmount = typeof amount === 'number' && !isNaN(amount) ? amount : 0;
+  const rounded = Math.round(safeAmount);
   const formatted = new Intl.NumberFormat('es-CO', {
     style: 'currency',
     currency: currency,

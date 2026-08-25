@@ -9,6 +9,7 @@ import {
   SlidersHorizontal,
   PlusCircle,
   ArrowRight,
+  Package,
 } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { formatCurrency, Producto } from '@treinta/shared';
@@ -34,37 +35,47 @@ export const SelectSuppliesModal: React.FC<SelectSuppliesModalProps> = ({
   initialItems,
   onConfirm,
 }) => {
-  const { productos, categorias } = useAppStore();
+  const { productos = [], categorias = [] } = useAppStore();
 
-  const [selectedItems, setSelectedItems] = useState<GastoProductoItem[]>(initialItems);
+  const safeInitialItems = useMemo(() => {
+    return Array.isArray(initialItems) ? initialItems.filter((i) => i && i.producto) : [];
+  }, [initialItems]);
+
+  const [selectedItems, setSelectedItems] = useState<GastoProductoItem[]>(safeInitialItems);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('todos');
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
 
   // Sync initial items when modal opens
   React.useEffect(() => {
-    setSelectedItems(initialItems);
-  }, [initialItems, isOpen]);
+    if (isOpen) {
+      setSelectedItems(safeInitialItems);
+    }
+  }, [safeInitialItems, isOpen]);
 
   if (!isOpen) return null;
 
   const handleAddProduct = (producto: Producto) => {
+    if (!producto || !producto.id) return;
+
     setSelectedItems((prev) => {
-      const existing = prev.find((item) => item.producto.id === producto.id);
+      const validPrev = Array.isArray(prev) ? prev.filter((i) => i && i.producto) : [];
+      const existing = validPrev.find((item) => item.producto.id === producto.id);
+
       if (existing) {
-        return prev.map((item) =>
+        return validPrev.map((item) =>
           item.producto.id === producto.id
             ? {
                 ...item,
                 cantidad: item.cantidad + 1,
-                subtotal: (item.cantidad + 1) * item.costoUnitario,
+                subtotal: (item.cantidad + 1) * (item.costoUnitario || 0),
               }
             : item
         );
       } else {
-        const initialCost = producto.costo || 0;
+        const initialCost = Number(producto.costo) || 0;
         return [
-          ...prev,
+          ...validPrev,
           {
             producto,
             cantidad: 1,
@@ -82,55 +93,66 @@ export const SelectSuppliesModal: React.FC<SelectSuppliesModalProps> = ({
       return;
     }
     setSelectedItems((prev) =>
-      prev.map((item) =>
-        item.producto.id === productoId
-          ? {
-              ...item,
-              cantidad: nuevaCantidad,
-              subtotal: nuevaCantidad * item.costoUnitario,
-            }
-          : item
-      )
+      prev
+        .filter((i) => i && i.producto)
+        .map((item) =>
+          item.producto.id === productoId
+            ? {
+                ...item,
+                cantidad: nuevaCantidad,
+                subtotal: nuevaCantidad * (item.costoUnitario || 0),
+              }
+            : item
+        )
     );
   };
 
   const handleUpdateCosto = (productoId: string, nuevoCosto: number) => {
+    const validCosto = Math.max(0, Number(nuevoCosto) || 0);
     setSelectedItems((prev) =>
-      prev.map((item) =>
-        item.producto.id === productoId
-          ? {
-              ...item,
-              costoUnitario: nuevoCosto,
-              subtotal: item.cantidad * nuevoCosto,
-            }
-          : item
-      )
+      prev
+        .filter((i) => i && i.producto)
+        .map((item) =>
+          item.producto.id === productoId
+            ? {
+                ...item,
+                costoUnitario: validCosto,
+                subtotal: item.cantidad * validCosto,
+              }
+            : item
+        )
     );
   };
 
   const handleRemoveItem = (productoId: string) => {
-    setSelectedItems((prev) => prev.filter((item) => item.producto.id !== productoId));
+    setSelectedItems((prev) =>
+      prev.filter((item) => item && item.producto && item.producto.id !== productoId)
+    );
   };
 
   const filteredProducts = useMemo(() => {
-    return productos.filter((p) => {
-      if (!p.activo) return false;
+    return (productos || []).filter((p) => {
+      if (!p || !p.activo) return false;
       const matchCategory =
         selectedCategory === 'todos' || p.categoria_id === selectedCategory;
       const matchSearch =
         searchTerm === '' ||
-        p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.nombre && p.nombre.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (p.sku && p.sku.toLowerCase().includes(searchTerm.toLowerCase()));
       return matchCategory && matchSearch;
     });
   }, [productos, selectedCategory, searchTerm]);
 
   const totalCalculado = useMemo(() => {
-    return selectedItems.reduce((sum, item) => sum + item.subtotal, 0);
+    return (selectedItems || []).reduce(
+      (sum, item) => sum + (Number(item?.subtotal) || (Number(item?.cantidad || 0) * Number(item?.costoUnitario || 0))),
+      0
+    );
   }, [selectedItems]);
 
   const handleFinish = () => {
-    onConfirm(selectedItems, totalCalculado);
+    const validItems = (selectedItems || []).filter((i) => i && i.producto);
+    onConfirm(validItems, totalCalculado);
     onClose();
   };
 
@@ -140,9 +162,10 @@ export const SelectSuppliesModal: React.FC<SelectSuppliesModalProps> = ({
         {/* LEFT PRODUCT SELECTION AREA */}
         <div className="flex-1 flex flex-col h-full overflow-hidden border-r border-slate-200">
           {/* Header */}
-          <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-white">
+          <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-white shrink-0">
             <div className="flex items-center gap-3">
               <button
+                type="button"
                 onClick={onClose}
                 className="p-1.5 hover:bg-slate-100 rounded-full transition text-slate-700"
               >
@@ -166,8 +189,9 @@ export const SelectSuppliesModal: React.FC<SelectSuppliesModalProps> = ({
           </div>
 
           {/* Category Chips */}
-          <div className="px-6 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center gap-2 overflow-x-auto">
+          <div className="px-6 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center gap-2 overflow-x-auto shrink-0">
             <button
+              type="button"
               onClick={() => setSelectedCategory('todos')}
               className={`px-4 py-1.5 rounded-xl text-xs font-extrabold transition-all shrink-0 ${
                 selectedCategory === 'todos'
@@ -181,6 +205,7 @@ export const SelectSuppliesModal: React.FC<SelectSuppliesModalProps> = ({
             {categorias.map((cat) => (
               <button
                 key={cat.id}
+                type="button"
                 onClick={() => setSelectedCategory(cat.id)}
                 className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
                   selectedCategory === cat.id
@@ -209,8 +234,8 @@ export const SelectSuppliesModal: React.FC<SelectSuppliesModalProps> = ({
 
               {/* Product Cards */}
               {filteredProducts.map((p) => {
-                const selectedInList = selectedItems.find(
-                  (item) => item.producto.id === p.id
+                const selectedInList = (selectedItems || []).find(
+                  (item) => item && item.producto && item.producto.id === p.id
                 );
 
                 return (
@@ -256,7 +281,7 @@ export const SelectSuppliesModal: React.FC<SelectSuppliesModalProps> = ({
                     {/* Stock available */}
                     <div className="mt-2">
                       <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700">
-                        {p.stock_actual} disponibles
+                        {p.stock_actual || 0} disponibles
                       </span>
                     </div>
                   </div>
@@ -269,10 +294,11 @@ export const SelectSuppliesModal: React.FC<SelectSuppliesModalProps> = ({
         {/* RIGHT PANEL: SELECTED PRODUCTS FOR SUPPLY */}
         <div className="w-full sm:w-80 lg:w-96 bg-white flex flex-col justify-between shrink-0 h-full">
           {/* Header */}
-          <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+          <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
             <h4 className="font-extrabold text-sm text-slate-900">Productos</h4>
             {selectedItems.length > 0 && (
               <button
+                type="button"
                 onClick={() => setSelectedItems([])}
                 className="text-xs font-bold text-slate-500 hover:text-rose-600 underline"
               >
@@ -285,91 +311,100 @@ export const SelectSuppliesModal: React.FC<SelectSuppliesModalProps> = ({
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
             {selectedItems.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center text-slate-400 py-12">
+                <Package className="w-10 h-10 text-slate-300 mb-2" />
                 <p className="text-xs font-semibold">
                   Selecciona los productos que estás comprando para registrar en el gasto
                 </p>
               </div>
             ) : (
-              selectedItems.map((item) => (
-                <div
-                  key={item.producto.id}
-                  className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-3"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5 overflow-hidden">
-                      <div className="w-8 h-8 rounded-xl bg-purple-100 flex items-center justify-center font-bold text-xs text-purple-600 shrink-0">
-                        t.
+              selectedItems.map((item) => {
+                if (!item || !item.producto) return null;
+
+                return (
+                  <div
+                    key={item.producto.id}
+                    className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5 overflow-hidden">
+                        <div className="w-8 h-8 rounded-xl bg-purple-100 flex items-center justify-center font-bold text-xs text-purple-600 shrink-0">
+                          t.
+                        </div>
+                        <span className="font-extrabold text-xs text-slate-900 truncate">
+                          {item.producto.nombre}
+                        </span>
                       </div>
-                      <span className="font-extrabold text-xs text-slate-900 truncate">
-                        {item.producto.nombre}
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => handleRemoveItem(item.producto.id)}
-                      className="text-slate-400 hover:text-rose-600 p-1"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  {/* Quantity Stepper and Unit Cost */}
-                  <div className="flex items-center gap-2">
-                    {/* Stepper */}
-                    <div className="flex items-center bg-white rounded-xl border border-slate-300 p-1">
                       <button
-                        onClick={() =>
-                          handleUpdateQuantity(item.producto.id, item.cantidad - 1)
-                        }
-                        className="p-1 hover:bg-slate-100 rounded text-slate-600"
+                        type="button"
+                        onClick={() => handleRemoveItem(item.producto.id)}
+                        className="text-slate-400 hover:text-rose-600 p-1"
                       >
-                        <Minus className="w-3.5 h-3.5" />
-                      </button>
-                      <span className="px-3 font-extrabold text-xs text-slate-900">
-                        {item.cantidad}
-                      </span>
-                      <button
-                        onClick={() =>
-                          handleUpdateQuantity(item.producto.id, item.cantidad + 1)
-                        }
-                        className="p-1 hover:bg-slate-100 rounded text-slate-600"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
 
-                    {/* Unit Cost input */}
-                    <div className="flex-1 flex items-center bg-white rounded-xl border border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-900">
-                      <span>$</span>
-                      <input
-                        type="number"
-                        min="0"
-                        value={item.costoUnitario || ''}
-                        onChange={(e) =>
-                          handleUpdateCosto(
-                            item.producto.id,
-                            parseFloat(e.target.value) || 0
-                          )
-                        }
-                        className="w-full ml-1 font-bold text-slate-900 focus:outline-none"
-                        placeholder="0"
-                      />
+                    {/* Quantity Stepper and Unit Cost */}
+                    <div className="flex items-center gap-2">
+                      {/* Stepper */}
+                      <div className="flex items-center bg-white rounded-xl border border-slate-300 p-1">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleUpdateQuantity(item.producto.id, item.cantidad - 1)
+                          }
+                          className="p-1 hover:bg-slate-100 rounded text-slate-600"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="px-3 font-extrabold text-xs text-slate-900">
+                          {item.cantidad}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleUpdateQuantity(item.producto.id, item.cantidad + 1)
+                          }
+                          className="p-1 hover:bg-slate-100 rounded text-slate-600"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {/* Unit Cost input */}
+                      <div className="flex-1 flex items-center bg-white rounded-xl border border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-900">
+                        <span>$</span>
+                        <input
+                          type="number"
+                          min="0"
+                          value={item.costoUnitario || ''}
+                          onChange={(e) =>
+                            handleUpdateCosto(
+                              item.producto.id,
+                              parseFloat(e.target.value) || 0
+                            )
+                          }
+                          className="w-full ml-1 font-bold text-slate-900 focus:outline-none"
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="text-[11px] font-bold text-slate-500 pt-1 text-right">
+                      Costo por {item.cantidad} unidades:{' '}
+                      <span className="font-black text-slate-900">
+                        {formatCurrency(item.subtotal)}
+                      </span>
                     </div>
                   </div>
-
-                  <div className="text-[11px] font-bold text-slate-500 pt-1 text-right">
-                    Costo por {item.cantidad} unidades:{' '}
-                    <span className="font-black text-slate-900">
-                      {formatCurrency(item.subtotal)}
-                    </span>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
 
           {/* Bottom Bar: Continuar */}
-          <div className="p-6 border-t border-slate-200 bg-white">
+          <div className="p-6 border-t border-slate-200 bg-white shrink-0">
             <button
+              type="button"
               disabled={selectedItems.length === 0}
               onClick={handleFinish}
               className={`w-full py-4 px-6 rounded-2xl font-black text-sm transition-all shadow-md flex items-center justify-between ${

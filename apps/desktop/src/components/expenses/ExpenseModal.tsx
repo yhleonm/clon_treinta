@@ -395,12 +395,14 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose }) =
       </div>
 
       {/* Select Supplies Modal */}
-      <SelectSuppliesModal
-        isOpen={isSupplyModalOpen}
-        onClose={() => setIsSupplyModalOpen(false)}
-        initialItems={supplyItems}
-        onConfirm={handleSuppliesConfirmed}
-      />
+      {isSupplyModalOpen && (
+        <SelectSuppliesModal
+          isOpen={isSupplyModalOpen}
+          onClose={() => setIsSupplyModalOpen(false)}
+          initialItems={supplyItems}
+          onConfirm={handleSuppliesConfirmed}
+        />
+      )}
     </div>,
     document.body
   );
