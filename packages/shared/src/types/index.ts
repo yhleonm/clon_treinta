@@ -124,6 +124,7 @@ export interface Usuario {
   nombre: string;
   email: string;
   telefono?: string | null;
+  password?: string | null;
   rol: RolUsuario;
   permisos?: PermisosEmpleado;
   activo: boolean;

@@ -15,14 +15,31 @@ import {
 import { useAppStore } from '../store/useAppStore';
 
 export const AuthPage: React.FC = () => {
-  const { login, registerBusiness, demoLogin, usuarios, negocio } = useAppStore();
+  const { login, registerBusiness, demoLogin, loadDemoBusiness, usuarios, negocio } = useAppStore();
+
+  const isDemoBusiness = negocio.id === 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
 
   const [tab, setTab] = useState<'login' | 'register'>('login');
 
   // Login form state
-  const [loginIdentifier, setLoginIdentifier] = useState('admin@eltriunfo.com');
-  const [loginPassword, setLoginPassword] = useState('••••••••');
+  const [loginIdentifier, setLoginIdentifier] = useState(
+    isDemoBusiness ? 'jackeline@eltriunfo.com' : (usuarios[0]?.email || '')
+  );
+  const [loginPassword, setLoginPassword] = useState(
+    isDemoBusiness ? '1234' : ((usuarios[0] as any)?.password || '')
+  );
   const [loginError, setLoginError] = useState('');
+
+  // Update default inputs when negocio changes
+  React.useEffect(() => {
+    if (isDemoBusiness) {
+      setLoginIdentifier('jackeline@eltriunfo.com');
+      setLoginPassword('1234');
+    } else {
+      setLoginIdentifier(usuarios[0]?.email || '');
+      setLoginPassword((usuarios[0] as any)?.password || '');
+    }
+  }, [negocio.id, isDemoBusiness, usuarios]);
 
   // Register form state
   const [businessName, setBusinessName] = useState('');
@@ -311,45 +328,106 @@ export const AuthPage: React.FC = () => {
           </div>
 
           {/* DEMO / QUICK ACCESS TILES */}
-          <div className="p-4 rounded-3xl bg-slate-900/50 border border-slate-800/80 space-y-2.5">
+          <div className="p-4 rounded-3xl bg-slate-900/50 border border-slate-800/80 space-y-3">
             <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
-              <span>⚡ Acceso Rápido de Prueba (1 Clic):</span>
-              <span className="text-emerald-400 font-semibold">{negocio.nombre}</span>
+              <span>
+                {isDemoBusiness
+                  ? '⚡ Acceso Rápido (Negocio Demo):'
+                  : '👥 Usuarios Registrados:'}
+              </span>
+              <span className="text-emerald-400 font-semibold truncate max-w-[180px]">
+                {negocio.nombre}
+              </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => demoLogin('u-jackeline')}
-                className="p-3 bg-slate-800 hover:bg-slate-700/80 border border-slate-700 rounded-2xl text-left transition group"
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-extrabold text-xs text-white group-hover:text-emerald-400">
-                    Jackeline
-                  </span>
-                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold">
-                    Admin
-                  </span>
-                </div>
-                <div className="text-[10px] text-slate-400">Acceso total a balances y gastos</div>
-              </button>
+            {isDemoBusiness ? (
+              /* DEMO USERS (EL TRIUNFO) */
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => demoLogin('u-jackeline')}
+                  className="p-3 bg-slate-800 hover:bg-slate-700/80 border border-slate-700 rounded-2xl text-left transition group"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-extrabold text-xs text-white group-hover:text-emerald-400">
+                      Jackeline
+                    </span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold">
+                      Admin
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-slate-400">Acceso total a balances y gastos</div>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => demoLogin('u-manolo')}
-                className="p-3 bg-slate-800 hover:bg-slate-700/80 border border-slate-700 rounded-2xl text-left transition group"
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-extrabold text-xs text-white group-hover:text-sky-400">
-                    Manolo
-                  </span>
-                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 font-bold">
-                    Vendedor
-                  </span>
+                <button
+                  type="button"
+                  onClick={() => demoLogin('u-manolo')}
+                  className="p-3 bg-slate-800 hover:bg-slate-700/80 border border-slate-700 rounded-2xl text-left transition group"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-extrabold text-xs text-white group-hover:text-sky-400">
+                      Manolo
+                    </span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 font-bold">
+                      Vendedor
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-slate-400">Solo ventas (POS) y catálogo</div>
+                </button>
+              </div>
+            ) : (
+              /* CUSTOM BUSINESS USERS */
+              <div className="space-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {usuarios.map((u) => (
+                    <button
+                      key={u.id}
+                      type="button"
+                      onClick={() => {
+                        const pass = (u as any).password || '1234';
+                        setLoginIdentifier(u.email);
+                        setLoginPassword(pass);
+                        login(u.email, pass);
+                      }}
+                      className="p-3 bg-slate-800 hover:bg-slate-700/80 border border-slate-700 rounded-2xl text-left transition group"
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-extrabold text-xs text-white group-hover:text-emerald-400 truncate">
+                          {u.nombre}
+                        </span>
+                        <span
+                          className={`text-[9px] px-1.5 py-0.5 rounded font-bold capitalize ${
+                            u.rol === 'propietario' || u.rol === 'administrador'
+                              ? 'bg-emerald-500/20 text-emerald-300'
+                              : 'bg-sky-500/20 text-sky-300'
+                          }`}
+                        >
+                          {u.rol}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-slate-400 truncate">{u.email}</div>
+                    </button>
+                  ))}
                 </div>
-                <div className="text-[10px] text-slate-400">Solo ventas (POS) y catálogo</div>
-              </button>
-            </div>
+
+                <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={loadDemoBusiness}
+                    className="text-slate-400 hover:text-emerald-400 text-[11px] font-bold transition flex items-center gap-1"
+                  >
+                    <span>🔄 Cargar Negocio Demo (El Triunfo)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTab('register')}
+                    className="text-emerald-400 hover:text-emerald-300 text-[11px] font-bold transition"
+                  >
+                    + Registrar otro
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
