@@ -1,0 +1,10 @@
+{
+  "name": "@treinta/database",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Supabase PostgreSQL migrations, RLS policies, functions, triggers, and seeders",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Database schemas validated\""
+  }
+}

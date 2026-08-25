@@ -1,0 +1,19 @@
+{
+  "name": "treinta-app-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sistema de gestión para negocios: Ventas (POS), Gastos, Inventario en Tiempo Real y Balance",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=@treinta/desktop",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "clean": "npm run clean --workspaces --if-present"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}

@@ -1,0 +1,646 @@
+import { create } from 'zustand';
+import {
+  Negocio,
+  Usuario,
+  Categoria,
+  Producto,
+  Cliente,
+  Proveedor,
+  CajaSesion,
+  Venta,
+  Gasto,
+  CuentaPorCobrar,
+  CuentaPorPagar,
+  ItemCarrito,
+  MedioPago,
+  RolUsuario,
+  EstadoCuenta,
+  generateFolio,
+  AbonoCuentaCobrar,
+  AbonoCuentaPagar,
+} from '@treinta/shared';
+import {
+  INITIAL_NEGOCIO,
+  INITIAL_USUARIOS,
+  INITIAL_CATEGORIAS,
+  INITIAL_PRODUCTOS,
+  INITIAL_CLIENTES,
+  INITIAL_PROVEEDORES,
+  INITIAL_CAJA,
+  INITIAL_VENTAS,
+  INITIAL_GASTOS,
+  INITIAL_CXC,
+  INITIAL_CXP,
+} from '../lib/mock-data';
+
+interface AppState {
+  // Configuración de Sesión y Negocio
+  negocio: Negocio;
+  usuarioActual: Usuario;
+  usuarios: Usuario[];
+  setUsuarioActual: (usuario: Usuario) => void;
+  cambiarRol: (rol: RolUsuario) => void;
+
+  // Catálogo e Inventario
+  categorias: Categoria[];
+  productos: Producto[];
+  agregarProducto: (producto: Omit<Producto, 'id' | 'negocio_id' | 'created_at' | 'updated_at'>) => void;
+  editarProducto: (id: string, datos: Partial<Producto>) => void;
+  eliminarProducto: (id: string) => void;
+  ajustarStock: (productoId: string, cantidad: number, motivo: string) => void;
+
+  // Carrito de Ventas (POS)
+  carrito: ItemCarrito[];
+  agregarAlCarrito: (producto: Producto) => void;
+  agregarVentaLibreAlCarrito: (nombre: string, precio: number, cantidad: number) => void;
+  actualizarCantidadCarrito: (index: number, cantidad: number) => void;
+  eliminarItemCarrito: (index: number) => void;
+  vaciarCarrito: () => void;
+
+  // Procesamiento de Ventas
+  ventas: Venta[];
+  registrarVenta: (params: {
+    clienteId?: string | null;
+    medioPago: MedioPago;
+    descuento?: number;
+    notas?: string;
+  }) => { success: boolean; venta?: Venta; error?: string };
+
+  // Gastos
+  gastos: Gasto[];
+  registrarGasto: (params: {
+    categoria: string;
+    concepto: string;
+    valor: number;
+    medioPago: MedioPago;
+    esCredito: boolean;
+    proveedorId?: string | null;
+    fecha?: string;
+  }) => void;
+
+  // Cuentas por Cobrar (Clientes)
+  cuentasPorCobrar: CuentaPorCobrar[];
+  abonosCxC: AbonoCuentaCobrar[];
+  registrarAbonoCxC: (cuentaId: string, monto: number, medioPago: MedioPago, notas?: string) => void;
+
+  // Cuentas por Pagar (Proveedores)
+  cuentasPorPagar: CuentaPorPagar[];
+  abonosCxP: AbonoCuentaPagar[];
+  registrarAbonoCxP: (cuentaId: string, monto: number, medioPago: MedioPago, notas?: string) => void;
+
+  // Contactos
+  clientes: Cliente[];
+  proveedores: Proveedor[];
+  agregarCliente: (cliente: Omit<Cliente, 'id' | 'negocio_id' | 'saldo_deuda' | 'created_at' | 'activo'>) => void;
+  agregarProveedor: (proveedor: Omit<Proveedor, 'id' | 'negocio_id' | 'saldo_deuda' | 'created_at' | 'activo'>) => void;
+
+  // Caja / Turno
+  cajaSesion: CajaSesion | null;
+  abrirCaja: (montoInicial: number, notas?: string) => void;
+  cerrarCaja: (montoReal: number, notas?: string) => void;
+
+  // Filtro de Balance
+  periodoBalance: 'hoy' | 'semana' | 'mes' | 'todo';
+  setPeriodoBalance: (periodo: 'hoy' | 'semana' | 'mes' | 'todo') => void;
+}
+
+const STORAGE_KEY = 'treinta_app_state_v1';
+
+// Cargar estado inicial desde localStorage si existe
+const loadPersistedState = () => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (e) {
+    console.error('Error loading persisted state:', e);
+  }
+  return null;
+};
+
+const savedState = loadPersistedState();
+
+export const useAppStore = create<AppState>((set, get) => ({
+  negocio: savedState?.negocio || INITIAL_NEGOCIO,
+  usuarioActual: savedState?.usuarioActual || INITIAL_USUARIOS[0]!,
+  usuarios: savedState?.usuarios || INITIAL_USUARIOS,
+
+  setUsuarioActual: (usuario) => {
+    set({ usuarioActual: usuario });
+    saveState();
+  },
+
+  cambiarRol: (rol) => {
+    set((state) => ({
+      usuarioActual: { ...state.usuarioActual, rol },
+    }));
+    saveState();
+  },
+
+  categorias: savedState?.categorias || INITIAL_CATEGORIAS,
+  productos: savedState?.productos || INITIAL_PRODUCTOS,
+
+  agregarProducto: (prodData) => {
+    const state = get();
+    const nuevo: Producto = {
+      ...prodData,
+      id: 'p-' + Date.now(),
+      negocio_id: state.negocio.id,
+      activo: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    set((s) => ({ productos: [nuevo, ...s.productos] }));
+    saveState();
+  },
+
+  editarProducto: (id, datos) => {
+    set((s) => ({
+      productos: s.productos.map((p) =>
+        p.id === id ? { ...p, ...datos, updated_at: new Date().toISOString() } : p
+      ),
+    }));
+    saveState();
+  },
+
+  eliminarProducto: (id) => {
+    set((s) => ({
+      productos: s.productos.filter((p) => p.id !== id),
+    }));
+    saveState();
+  },
+
+  ajustarStock: (productoId, cantidad, motivo) => {
+    set((s) => ({
+      productos: s.productos.map((p) => {
+        if (p.id === productoId) {
+          const nuevoStock = p.stock_actual + cantidad;
+          return { ...p, stock_actual: nuevoStock, updated_at: new Date().toISOString() };
+        }
+        return p;
+      }),
+    }));
+    saveState();
+  },
+
+  // CARRITO
+  carrito: [],
+
+  agregarAlCarrito: (producto) => {
+    set((s) => {
+      const existingIndex = s.carrito.findIndex((item) => item.producto_id === producto.id);
+      if (existingIndex > -1) {
+        const updated = [...s.carrito];
+        const current = updated[existingIndex]!;
+        updated[existingIndex] = {
+          ...current,
+          cantidad: current.cantidad + 1,
+        };
+        return { carrito: updated };
+      } else {
+        const newItem: ItemCarrito = {
+          producto_id: producto.id,
+          nombre: producto.nombre,
+          precio_unitario: producto.precio_venta,
+          costo_unitario: producto.costo,
+          cantidad: 1,
+          stock_disponible: producto.stock_actual,
+          imagen_url: producto.imagen_url,
+        };
+        return { carrito: [...s.carrito, newItem] };
+      }
+    });
+  },
+
+  agregarVentaLibreAlCarrito: (nombre, precio, cantidad) => {
+    set((s) => ({
+      carrito: [
+        ...s.carrito,
+        {
+          producto_id: null,
+          nombre: nombre || 'Producto libre',
+          precio_unitario: precio,
+          costo_unitario: 0,
+          cantidad: cantidad || 1,
+        },
+      ],
+    }));
+  },
+
+  actualizarCantidadCarrito: (index, cantidad) => {
+    set((s) => {
+      if (cantidad <= 0) {
+        return { carrito: s.carrito.filter((_, i) => i !== index) };
+      }
+      const updated = [...s.carrito];
+      if (updated[index]) {
+        updated[index] = { ...updated[index]!, cantidad };
+      }
+      return { carrito: updated };
+    });
+  },
+
+  eliminarItemCarrito: (index) => {
+    set((s) => ({
+      carrito: s.carrito.filter((_, i) => i !== index),
+    }));
+  },
+
+  vaciarCarrito: () => {
+    set({ carrito: [] });
+  },
+
+  // VENTAS
+  ventas: savedState?.ventas || INITIAL_VENTAS,
+
+  registrarVenta: ({ clienteId, medioPago, descuento = 0, notas }) => {
+    const state = get();
+    if (state.carrito.length === 0) {
+      return { success: false, error: 'El carrito está vacío' };
+    }
+
+    const subtotal = state.carrito.reduce(
+      (sum, item) => sum + item.precio_unitario * item.cantidad,
+      0
+    );
+    const total = Math.max(0, subtotal - descuento);
+    const folio = generateFolio('V');
+    const ventaId = 'v-' + Date.now();
+
+    const ventaItems = state.carrito.map((item, idx) => ({
+      id: `vi-${Date.now()}-${idx}`,
+      venta_id: ventaId,
+      producto_id: item.producto_id,
+      nombre_producto: item.nombre,
+      cantidad: item.cantidad,
+      precio_unitario: item.precio_unitario,
+      costo_unitario: item.costo_unitario,
+      subtotal: item.precio_unitario * item.cantidad,
+      created_at: new Date().toISOString(),
+    }));
+
+    const nuevaVenta: Venta = {
+      id: ventaId,
+      negocio_id: state.negocio.id,
+      numero_folio: folio,
+      usuario_id: state.usuarioActual.id,
+      cliente_id: clienteId || null,
+      sesion_caja_id: state.cajaSesion?.id || null,
+      subtotal,
+      descuento,
+      total,
+      medio_pago: medioPago,
+      estado: 'completada',
+      notas,
+      created_at: new Date().toISOString(),
+      items: ventaItems,
+      cliente: state.clientes.find((c) => c.id === clienteId) || null,
+      usuario: state.usuarioActual,
+    };
+
+    // 1. Descontar stock de productos
+    const productosActualizados = state.productos.map((prod) => {
+      const itemEnVenta = state.carrito.find((i) => i.producto_id === prod.id);
+      if (itemEnVenta) {
+        return {
+          ...prod,
+          stock_actual: prod.stock_actual - itemEnVenta.cantidad,
+          updated_at: new Date().toISOString(),
+        };
+      }
+      return prod;
+    });
+
+    // 2. Si es efectivo y hay caja abierta, actualizar totales de caja
+    let cajaActualizada = state.cajaSesion;
+    if (medioPago === 'efectivo' && cajaActualizada && cajaActualizada.estado === 'abierta') {
+      cajaActualizada = {
+        ...cajaActualizada,
+        total_ventas_efectivo: cajaActualizada.total_ventas_efectivo + total,
+        monto_esperado: cajaActualizada.monto_esperado + total,
+      };
+    }
+
+    // 3. Si es a crédito ("fiado") y hay cliente, crear cuenta por cobrar
+    let nuevasCxC = state.cuentasPorCobrar;
+    let clientesActualizados = state.clientes;
+    if (medioPago === 'credito' && clienteId) {
+      const nuevaCxC: CuentaPorCobrar = {
+        id: 'cxc-' + Date.now(),
+        negocio_id: state.negocio.id,
+        venta_id: ventaId,
+        cliente_id: clienteId,
+        monto_total: total,
+        saldo_pendiente: total,
+        estado: 'pendiente',
+        fecha_vencimiento: new Date(Date.now() + 86400000 * 15).toISOString().slice(0, 10),
+        notas: `Crédito originado en venta #${folio}`,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        cliente: state.clientes.find((c) => c.id === clienteId),
+        venta: nuevaVenta,
+      };
+      nuevasCxC = [nuevaCxC, ...nuevasCxC];
+
+      clientesActualizados = clientesActualizados.map((c) =>
+        c.id === clienteId ? { ...c, saldo_deuda: c.saldo_deuda + total } : c
+      );
+    }
+
+    set({
+      ventas: [nuevaVenta, ...state.ventas],
+      productos: productosActualizados,
+      cajaSesion: cajaActualizada,
+      cuentasPorCobrar: nuevasCxC,
+      clientes: clientesActualizados,
+      carrito: [], // Limpiar carrito
+    });
+
+    saveState();
+    return { success: true, venta: nuevaVenta };
+  },
+
+  // GASTOS
+  gastos: savedState?.gastos || INITIAL_GASTOS,
+
+  registrarGasto: ({ categoria, concepto, valor, medioPago, esCredito, proveedorId, fecha }) => {
+    const state = get();
+    const gastoId = 'g-' + Date.now();
+    const nuevoGasto: Gasto = {
+      id: gastoId,
+      negocio_id: state.negocio.id,
+      usuario_id: state.usuarioActual.id,
+      proveedor_id: proveedorId || null,
+      sesion_caja_id: state.cajaSesion?.id || null,
+      categoria,
+      concepto,
+      valor,
+      medio_pago: medioPago,
+      es_credito: esCredito,
+      fecha: fecha || new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      proveedor: state.proveedores.find((p) => p.id === proveedorId) || null,
+      usuario: state.usuarioActual,
+    };
+
+    // Actualizar caja si fue en efectivo
+    let cajaActualizada = state.cajaSesion;
+    if (medioPago === 'efectivo' && cajaActualizada && cajaActualizada.estado === 'abierta') {
+      cajaActualizada = {
+        ...cajaActualizada,
+        total_gastos_efectivo: cajaActualizada.total_gastos_efectivo + valor,
+        monto_esperado: cajaActualizada.monto_esperado - valor,
+      };
+    }
+
+    // Crear cuenta por pagar si fue a crédito con proveedor
+    let nuevasCxP = state.cuentasPorPagar;
+    let proveedoresActualizados = state.proveedores;
+    if (esCredito && proveedorId) {
+      const nuevaCxP: CuentaPorPagar = {
+        id: 'cxp-' + Date.now(),
+        negocio_id: state.negocio.id,
+        gasto_id: gastoId,
+        proveedor_id: proveedorId,
+        monto_total: valor,
+        saldo_pendiente: valor,
+        estado: 'pendiente',
+        fecha_vencimiento: new Date(Date.now() + 86400000 * 30).toISOString().slice(0, 10),
+        notas: `Gasto a crédito: ${concepto}`,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        proveedor: state.proveedores.find((p) => p.id === proveedorId),
+        gasto: nuevoGasto,
+      };
+      nuevasCxP = [nuevaCxP, ...nuevasCxP];
+
+      proveedoresActualizados = proveedoresActualizados.map((p) =>
+        p.id === proveedorId ? { ...p, saldo_deuda: p.saldo_deuda + valor } : p
+      );
+    }
+
+    set({
+      gastos: [nuevoGasto, ...state.gastos],
+      cajaSesion: cajaActualizada,
+      cuentasPorPagar: nuevasCxP,
+      proveedores: proveedoresActualizados,
+    });
+
+    saveState();
+  },
+
+  // CUENTAS POR COBRAR (ABONOS)
+  cuentasPorCobrar: savedState?.cuentasPorCobrar || INITIAL_CXC,
+  abonosCxC: savedState?.abonosCxC || [],
+
+  registrarAbonoCxC: (cuentaId, monto, medioPago, notas) => {
+    const state = get();
+    const cxc = state.cuentasPorCobrar.find((c) => c.id === cuentaId);
+    if (!cxc) return;
+
+    const abonoId = 'abcxc-' + Date.now();
+    const nuevoAbono: AbonoCuentaCobrar = {
+      id: abonoId,
+      negocio_id: state.negocio.id,
+      cuenta_id: cuentaId,
+      cliente_id: cxc.cliente_id,
+      usuario_id: state.usuarioActual.id,
+      sesion_caja_id: state.cajaSesion?.id || null,
+      monto,
+      medio_pago: medioPago,
+      notas,
+      created_at: new Date().toISOString(),
+    };
+
+    const nuevoSaldo = Math.max(0, cxc.saldo_pendiente - monto);
+    const nuevoEstado: EstadoCuenta = nuevoSaldo === 0 ? 'pagada' : 'parcial';
+
+    const cxcActualizadas = state.cuentasPorCobrar.map((c) =>
+      c.id === cuentaId
+        ? { ...c, saldo_pendiente: nuevoSaldo, estado: nuevoEstado, updated_at: new Date().toISOString() }
+        : c
+    );
+
+    const clientesActualizados = state.clientes.map((cl) =>
+      cl.id === cxc.cliente_id
+        ? { ...cl, saldo_deuda: Math.max(0, cl.saldo_deuda - monto) }
+        : cl
+    );
+
+    let cajaActualizada = state.cajaSesion;
+    if (medioPago === 'efectivo' && cajaActualizada && cajaActualizada.estado === 'abierta') {
+      cajaActualizada = {
+        ...cajaActualizada,
+        total_abonos_efectivo: cajaActualizada.total_abonos_efectivo + monto,
+        monto_esperado: cajaActualizada.monto_esperado + monto,
+      };
+    }
+
+    set({
+      cuentasPorCobrar: cxcActualizadas,
+      abonosCxC: [nuevoAbono, ...state.abonosCxC],
+      clientes: clientesActualizados,
+      cajaSesion: cajaActualizada,
+    });
+
+    saveState();
+  },
+
+  // CUENTAS POR PAGAR (ABONOS)
+  cuentasPorPagar: savedState?.cuentasPorPagar || INITIAL_CXP,
+  abonosCxP: savedState?.abonosCxP || [],
+
+  registrarAbonoCxP: (cuentaId, monto, medioPago, notas) => {
+    const state = get();
+    const cxp = state.cuentasPorPagar.find((c) => c.id === cuentaId);
+    if (!cxp) return;
+
+    const abonoId = 'abcxp-' + Date.now();
+    const nuevoAbono: AbonoCuentaPagar = {
+      id: abonoId,
+      negocio_id: state.negocio.id,
+      cuenta_id: cuentaId,
+      proveedor_id: cxp.proveedor_id,
+      usuario_id: state.usuarioActual.id,
+      sesion_caja_id: state.cajaSesion?.id || null,
+      monto,
+      medio_pago: medioPago,
+      notas,
+      created_at: new Date().toISOString(),
+    };
+
+    const nuevoSaldo = Math.max(0, cxp.saldo_pendiente - monto);
+    const nuevoEstado: EstadoCuenta = nuevoSaldo === 0 ? 'pagada' : 'parcial';
+
+    const cxpActualizadas = state.cuentasPorPagar.map((c) =>
+      c.id === cuentaId
+        ? { ...c, saldo_pendiente: nuevoSaldo, estado: nuevoEstado, updated_at: new Date().toISOString() }
+        : c
+    );
+
+    const proveedoresActualizados = state.proveedores.map((pr) =>
+      pr.id === cxp.proveedor_id
+        ? { ...pr, saldo_deuda: Math.max(0, pr.saldo_deuda - monto) }
+        : pr
+    );
+
+    let cajaActualizada = state.cajaSesion;
+    if (medioPago === 'efectivo' && cajaActualizada && cajaActualizada.estado === 'abierta') {
+      cajaActualizada = {
+        ...cajaActualizada,
+        total_gastos_efectivo: cajaActualizada.total_gastos_efectivo + monto,
+        monto_esperado: cajaActualizada.monto_esperado - monto,
+      };
+    }
+
+    set({
+      cuentasPorPagar: cxpActualizadas,
+      abonosCxP: [nuevoAbono, ...state.abonosCxP],
+      proveedores: proveedoresActualizados,
+      cajaSesion: cajaActualizada,
+    });
+
+    saveState();
+  },
+
+  // CLIENTES Y PROVEEDORES
+  clientes: savedState?.clientes || INITIAL_CLIENTES,
+  proveedores: savedState?.proveedores || INITIAL_PROVEEDORES,
+
+  agregarCliente: (data) => {
+    const nuevo: Cliente = {
+      ...data,
+      id: 'cl-' + Date.now(),
+      negocio_id: get().negocio.id,
+      saldo_deuda: 0,
+      activo: true,
+      created_at: new Date().toISOString(),
+    };
+    set((s) => ({ clientes: [nuevo, ...s.clientes] }));
+    saveState();
+  },
+
+  agregarProveedor: (data) => {
+    const nuevo: Proveedor = {
+      ...data,
+      id: 'pr-' + Date.now(),
+      negocio_id: get().negocio.id,
+      saldo_deuda: 0,
+      activo: true,
+      created_at: new Date().toISOString(),
+    };
+    set((s) => ({ proveedores: [nuevo, ...s.proveedores] }));
+    saveState();
+  },
+
+  // CAJA SESIONES
+  cajaSesion: savedState?.cajaSesion || INITIAL_CAJA,
+
+  abrirCaja: (montoInicial, notas) => {
+    const state = get();
+    const nuevaCaja: CajaSesion = {
+      id: 'caja-' + Date.now(),
+      negocio_id: state.negocio.id,
+      usuario_id: state.usuarioActual.id,
+      fecha_apertura: new Date().toISOString(),
+      monto_inicial: montoInicial,
+      total_ventas_efectivo: 0,
+      total_gastos_efectivo: 0,
+      total_abonos_efectivo: 0,
+      monto_esperado: montoInicial,
+      estado: 'abierta',
+      notas,
+      created_at: new Date().toISOString(),
+    };
+    set({ cajaSesion: nuevaCaja });
+    saveState();
+  },
+
+  cerrarCaja: (montoReal, notas) => {
+    const state = get();
+    if (!state.cajaSesion) return;
+
+    const diferencia = montoReal - state.cajaSesion.monto_esperado;
+    const cajaCerrada: CajaSesion = {
+      ...state.cajaSesion,
+      fecha_cierre: new Date().toISOString(),
+      monto_real: montoReal,
+      diferencia,
+      estado: 'cerrada',
+      notas: notas || state.cajaSesion.notas,
+    };
+    set({ cajaSesion: cajaCerrada });
+    saveState();
+  },
+
+  // BALANCE
+  periodoBalance: 'hoy',
+  setPeriodoBalance: (periodo) => set({ periodoBalance: periodo }),
+}));
+
+function saveState() {
+  setTimeout(() => {
+    try {
+      const state = useAppStore.getState();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        negocio: state.negocio,
+        usuarioActual: state.usuarioActual,
+        usuarios: state.usuarios,
+        categorias: state.categorias,
+        productos: state.productos,
+        ventas: state.ventas,
+        gastos: state.gastos,
+        cuentasPorCobrar: state.cuentasPorCobrar,
+        abonosCxC: state.abonosCxC,
+        cuentasPorPagar: state.cuentasPorPagar,
+        abonosCxP: state.abonosCxP,
+        clientes: state.clientes,
+        proveedores: state.proveedores,
+        cajaSesion: state.cajaSesion,
+      }));
+    } catch (e) {
+      console.error('Error saving state:', e);
+    }
+  }, 50);
+}
