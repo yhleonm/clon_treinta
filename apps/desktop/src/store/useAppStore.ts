@@ -211,6 +211,64 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   demoLogin: (userId) => {
     const state = get();
+    if (userId === 'u-manolo') {
+      const manolo: Usuario = state.usuarios.find(
+        (u) => u.id === 'u-manolo' || u.nombre.toLowerCase().includes('manolo')
+      ) || {
+        id: 'u-manolo',
+        negocio_id: state.negocio.id,
+        nombre: 'Manolo',
+        email: 'manolo@eltriunfo.com',
+        telefono: '+573123822341',
+        rol: 'vendedor',
+        permisos: PERMISOS_DEFAULT_VENDEDOR,
+        activo: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      const updatedUsuarios = state.usuarios.some((u) => u.id === manolo.id)
+        ? state.usuarios.map((u) => (u.id === manolo.id ? { ...u, rol: 'vendedor' as const } : u))
+        : [...state.usuarios, { ...manolo, rol: 'vendedor' as const }];
+
+      set({
+        usuarioActual: { ...manolo, rol: 'vendedor' },
+        usuarios: updatedUsuarios,
+        isAuthenticated: true,
+      });
+      saveState();
+      return;
+    }
+
+    if (userId === 'u-jackeline') {
+      const jackeline: Usuario = state.usuarios.find(
+        (u) => u.id === 'u-jackeline' || u.nombre.toLowerCase().includes('jackeline')
+      ) || {
+        id: 'u-jackeline',
+        negocio_id: state.negocio.id,
+        nombre: 'Jackeline',
+        email: 'jackeline@eltriunfo.com',
+        telefono: '+573143574221',
+        rol: 'administrador',
+        permisos: PERMISOS_DEFAULT_ADMIN,
+        activo: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      const updatedUsuarios = state.usuarios.some((u) => u.id === jackeline.id)
+        ? state.usuarios.map((u) => (u.id === jackeline.id ? { ...u, rol: 'administrador' as const } : u))
+        : [...state.usuarios, { ...jackeline, rol: 'administrador' as const }];
+
+      set({
+        usuarioActual: { ...jackeline, rol: 'administrador' },
+        usuarios: updatedUsuarios,
+        isAuthenticated: true,
+      });
+      saveState();
+      return;
+    }
+
     const target = state.usuarios.find((u) => u.id === userId) || state.usuarios[0]!;
     set({ usuarioActual: target, isAuthenticated: true });
     saveState();

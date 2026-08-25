@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar, TabView } from './components/layout/Sidebar';
-import { Header } from './components/layout/Header';
 import { PosPage } from './pages/PosPage';
 import { BalancePage } from './pages/BalancePage';
 import { InventoryPage } from './pages/InventoryPage';
@@ -8,6 +7,10 @@ import { ExpensesPage } from './pages/ExpensesPage';
 import { CreditPage } from './pages/CreditPage';
 import { ContactsPage } from './pages/ContactsPage';
 import { EmployeesPage } from './pages/EmployeesPage';
+import { InvoicingPage } from './pages/InvoicingPage';
+import { StatsPage } from './pages/StatsPage';
+import { QuotesPage } from './pages/QuotesPage';
+import { OnlineStorePage } from './pages/OnlineStorePage';
 import { AuthPage } from './pages/AuthPage';
 import { CashRegisterModal } from './components/caja/CashRegisterModal';
 import { ExpenseModal } from './components/expenses/ExpenseModal';
@@ -23,7 +26,7 @@ export function App() {
 
   // If role changes to vendedor and current tab is restricted, redirect to pos
   useEffect(() => {
-    if (!isAdmin && ['balance', 'expenses', 'credit', 'contacts', 'employees'].includes(currentTab)) {
+    if (!isAdmin && ['balance', 'expenses', 'credit', 'employees'].includes(currentTab)) {
       setCurrentTab('pos');
     }
   }, [isAdmin, currentTab]);
@@ -47,19 +50,23 @@ export function App() {
               onOpenCashModal={() => setIsCashModalOpen(true)}
             />
           )}
-          {currentTab === 'balance' && isAdmin && (
+          {currentTab === 'balance' && (
             <BalancePage
               onOpenCashModal={() => setIsCashModalOpen(true)}
               onOpenExpenseModal={() => setIsExpenseModalOpen(true)}
             />
           )}
           {currentTab === 'inventory' && <InventoryPage />}
-          {currentTab === 'expenses' && isAdmin && (
+          {currentTab === 'expenses' && (
             <ExpensesPage onOpenExpenseModal={() => setIsExpenseModalOpen(true)} />
           )}
-          {currentTab === 'credit' && isAdmin && <CreditPage />}
-          {currentTab === 'contacts' && isAdmin && <ContactsPage />}
-          {currentTab === 'employees' && isAdmin && <EmployeesPage />}
+          {currentTab === 'invoicing' && <InvoicingPage />}
+          {currentTab === 'stats' && <StatsPage />}
+          {currentTab === 'quotes' && <QuotesPage />}
+          {currentTab === 'store' && <OnlineStorePage />}
+          {currentTab === 'credit' && <CreditPage />}
+          {currentTab === 'contacts' && <ContactsPage />}
+          {currentTab === 'employees' && <EmployeesPage />}
         </main>
       </div>
 
