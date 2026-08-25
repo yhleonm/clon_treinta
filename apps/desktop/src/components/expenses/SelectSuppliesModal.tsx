@@ -134,8 +134,8 @@ export const SelectSuppliesModal: React.FC<SelectSuppliesModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-6 select-none">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-6xl h-[90vh] overflow-hidden flex flex-col sm:flex-row border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-[60] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 select-none animate-in fade-in duration-150">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-6xl h-[90vh] overflow-hidden flex flex-col sm:flex-row border border-slate-200 animate-in zoom-in-95 duration-150">
         {/* LEFT PRODUCT SELECTION AREA */}
         <div className="flex-1 flex flex-col h-full overflow-hidden border-r border-slate-200">
           {/* Header */}
@@ -219,7 +219,7 @@ export const SelectSuppliesModal: React.FC<SelectSuppliesModalProps> = ({
                     className={`bg-white rounded-3xl p-4 border shadow-sm transition cursor-pointer flex flex-col items-center text-center relative group active:scale-98 ${
                       selectedInList
                         ? 'border-slate-900 ring-2 ring-slate-900/10'
-                        : 'border-slate-200 hover:border-amber-300'
+                        : 'border-slate-200 hover:border-emerald-500'
                     }`}
                   >
                     {/* Selected Count badge */}
