@@ -1,12 +1,29 @@
 import React, { useState } from 'react';
-import { X, TrendingDown, Check, AlertCircle } from 'lucide-react';
+import {
+  X,
+  TrendingDown,
+  Calendar,
+  ChevronDown,
+  ChevronRight,
+  Info,
+  CreditCard,
+  Building2,
+  Banknote,
+  Sparkles,
+  Crown,
+  Package,
+  Layers,
+} from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import {
   CATEGORIAS_GASTO_DEFAULT,
-  MEDIOS_DE_PAGO,
   MedioPago,
   formatCurrency,
 } from '@treinta/shared';
+import {
+  SelectSuppliesModal,
+  GastoProductoItem,
+} from './SelectSuppliesModal';
 
 interface ExpenseModalProps {
   isOpen: boolean;
@@ -14,179 +31,385 @@ interface ExpenseModalProps {
 }
 
 export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose }) => {
-  const { registrarGasto, proveedores, cajaSesion } = useAppStore();
+  const { registrarGasto, ajustarStock, proveedores } = useAppStore();
 
-  const [categoria, setCategoria] = useState(CATEGORIAS_GASTO_DEFAULT[0]!);
-  const [concepto, setConcepto] = useState('');
-  const [valor, setValor] = useState('');
+  const [estadoPago, setEstadoPago] = useState<'pagada' | 'en_deuda'>('pagada');
+  const [fecha, setFecha] = useState(
+    new Date().toISOString().split('T')[0] || ''
+  );
+  const [categoria, setCategoria] = useState<string>('Compra de productos e insumos');
+  const [supplyItems, setSupplyItems] = useState<GastoProductoItem[]>([]);
+  const [isSupplyModalOpen, setIsSupplyModalOpen] = useState(false);
+  const [valor, setValor] = useState<string>('');
+  const [nombreGasto, setNombreGasto] = useState<string>('');
+  const [proveedorId, setProveedorId] = useState<string>('');
   const [medioPago, setMedioPago] = useState<MedioPago>('efectivo');
-  const [esCredito, setEsCredito] = useState(false);
-  const [proveedorId, setProveedorId] = useState('');
 
   if (!isOpen) return null;
+
+  const isCompraInsumos = categoria === 'Compra de productos e insumos';
+
+  const handleSuppliesConfirmed = (
+    items: GastoProductoItem[],
+    totalCalculado: number
+  ) => {
+    setSupplyItems(items);
+    setValor(totalCalculado.toString());
+
+    // Auto-generate name if empty
+    if (items.length > 0 && !nombreGasto) {
+      if (items.length === 1) {
+        setNombreGasto(`${items[0]!.cantidad} ${items[0]!.producto.nombre}`);
+      } else {
+        setNombreGasto(
+          `Compra de ${items.length} productos (${items.map((i) => i.producto.nombre).slice(0, 2).join(', ')}...)`
+        );
+      }
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const valorNum = Number(valor) || 0;
-    if (valorNum <= 0 || !concepto) return;
+    if (valorNum <= 0) return;
 
+    const conceptoFinal =
+      nombreGasto.trim() ||
+      (supplyItems.length > 0
+        ? `Compra de ${supplyItems.length} productos`
+        : categoria);
+
+    // 1. Register the expense (and accounts payable if en_deuda)
     registrarGasto({
       categoria,
-      concepto: concepto.trim(),
+      concepto: conceptoFinal,
       valor: valorNum,
-      medioPago: esCredito ? 'credito' : medioPago,
-      esCredito,
+      medioPago: estadoPago === 'en_deuda' ? 'credito' : medioPago,
+      esCredito: estadoPago === 'en_deuda',
       proveedorId: proveedorId || null,
     });
+
+    // 2. If supply items selected, automatically increment product inventory
+    if (isCompraInsumos && supplyItems.length > 0) {
+      supplyItems.forEach((item) => {
+        ajustarStock(
+          item.producto.id,
+          item.cantidad,
+          `Compra de insumo en gasto: ${conceptoFinal}`
+        );
+      });
+    }
 
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-rose-100 text-rose-600 rounded-xl">
-              <TrendingDown className="w-5 h-5" />
+    <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex justify-end select-none animate-in fade-in duration-150">
+      {/* Slide-over Drawer Card */}
+      <div className="bg-white w-full max-w-lg h-full overflow-y-auto shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200">
+        <div>
+          {/* Header */}
+          <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+                <TrendingDown className="w-4 h-4" />
+              </div>
+              <h3 className="font-extrabold text-lg text-slate-900">Nuevo gasto</h3>
             </div>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-full transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="px-6 py-2 text-xs text-slate-400">
+            Los campos marcados con asterisco (*) son obligatorios
+          </div>
+
+          {/* Form */}
+          <form id="expense-form" onSubmit={handleSubmit} className="p-6 space-y-5">
+            {/* Pagada / En Deuda Switcher */}
+            <div className="bg-slate-100 p-1 rounded-2xl flex items-center">
+              <button
+                type="button"
+                onClick={() => setEstadoPago('pagada')}
+                className={`flex-1 py-2.5 rounded-xl text-xs font-extrabold transition-all ${
+                  estadoPago === 'pagada'
+                    ? 'bg-[#10B981] text-white shadow-md'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Pagada
+              </button>
+              <button
+                type="button"
+                onClick={() => setEstadoPago('en_deuda')}
+                className={`flex-1 py-2.5 rounded-xl text-xs font-extrabold transition-all ${
+                  estadoPago === 'en_deuda'
+                    ? 'bg-slate-900 text-white shadow-md'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                En deuda
+              </button>
+            </div>
+
+            {/* Fecha del gasto */}
             <div>
-              <h3 className="font-bold text-base text-slate-900">Registrar Nuevo Gasto</h3>
-              <p className="text-xs text-slate-500">Registra una salida de dinero o compra a proveedor</p>
+              <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
+                Fecha del gasto*
+              </label>
+              <div className="relative">
+                <input
+                  type="date"
+                  value={fecha}
+                  onChange={(e) => setFecha(e.target.value)}
+                  className="w-full px-4 py-3 bg-white border border-slate-300 rounded-2xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                />
+              </div>
             </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200/60 transition"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
-            <label className="block text-xs font-bold uppercase text-slate-600 mb-1">
-              Valor del Gasto ($ COP) *
-            </label>
-            <div className="relative">
-              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
-              <input
-                type="number"
-                required
-                min="1"
-                placeholder="25000"
-                value={valor}
-                onChange={(e) => setValor(e.target.value)}
-                className="w-full pl-8 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-lg font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold uppercase text-slate-600 mb-1">
-              Concepto / Detalle *
-            </label>
-            <input
-              type="text"
-              required
-              placeholder="Ej. Pago de recibo de luz Enel, Compra de bolsas..."
-              value={concepto}
-              onChange={(e) => setConcepto(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
+            {/* Categoría del gasto */}
             <div>
-              <label className="block text-xs font-bold uppercase text-slate-600 mb-1">Categoría</label>
+              <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
+                Categoría del gasto*
+              </label>
               <select
                 value={categoria}
-                onChange={(e) => setCategoria(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500"
+                onChange={(e) => {
+                  setCategoria(e.target.value);
+                  if (e.target.value !== 'Compra de productos e insumos') {
+                    setSupplyItems([]);
+                  }
+                }}
+                className="w-full px-4 py-3 bg-white border border-slate-300 rounded-2xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-400 cursor-pointer"
               >
-                {CATEGORIAS_GASTO_DEFAULT.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
+                <option value="Compra de productos e insumos">
+                  📦 Compra de productos e insumos
+                </option>
+                <option value="Servicios públicos">⚡ Servicios públicos</option>
+                <option value="Arriendo">🏠 Arriendo</option>
+                <option value="Nómina">👥 Nómina</option>
+                <option value="Mantenimiento y Reparaciones">🛠️ Mantenimiento y Reparaciones</option>
+                <option value="Transporte y Envíos">🚚 Transporte y Envíos</option>
+                <option value="Marketing y Publicidad">📢 Marketing y Publicidad</option>
+                <option value="Otros Gastos Operativos">📋 Otros Gastos Operativos</option>
               </select>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold uppercase text-slate-600 mb-1">Proveedor (Opcional)</label>
-              <select
-                value={proveedorId}
-                onChange={(e) => setProveedorId(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500"
-              >
-                <option value="">Ninguno / Gasto general</option>
-                {proveedores.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.nombre}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+            {/* If Compra de productos e insumos -> Supply Item Selection */}
+            {isCompraInsumos && (
+              <div className="space-y-3">
+                {/* Blue Info Alert */}
+                <div className="p-3.5 bg-blue-50/80 border border-blue-200 rounded-2xl text-xs text-blue-900 leading-relaxed font-semibold">
+                  Agregaremos los productos seleccionados a tu{' '}
+                  <span className="font-extrabold">inventario</span> automáticamente, al
+                  crear el gasto.
+                </div>
 
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-bold uppercase text-slate-600">Forma de Pago</label>
-              <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={esCredito}
-                  onChange={(e) => setEsCredito(e.target.checked)}
-                  className="rounded text-rose-600 focus:ring-rose-500"
-                />
-                <span className="font-semibold text-rose-700">Comprado a Crédito (Por Pagar)</span>
-              </label>
-            </div>
+                {/* Supply Selector Tile */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-extrabold text-slate-700">
+                      Productos comprados
+                    </span>
+                    {supplyItems.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSupplyItems([]);
+                          setValor('');
+                        }}
+                        className="text-xs font-bold text-slate-500 hover:text-rose-600 underline"
+                      >
+                        Limpiar
+                      </button>
+                    )}
+                  </div>
 
-            {!esCredito && (
-              <div className="grid grid-cols-3 gap-1.5">
-                {MEDIOS_DE_PAGO.filter((m) => m.id !== 'credito').map((m) => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => setMedioPago(m.id)}
-                    className={`py-2 px-2.5 rounded-xl border text-xs font-bold transition text-center truncate ${
-                      medioPago === m.id
-                        ? 'bg-rose-50 border-rose-500 text-rose-800'
-                        : 'bg-white border-slate-200 text-slate-700'
-                    }`}
+                  <div
+                    onClick={() => setIsSupplyModalOpen(true)}
+                    className="p-3.5 bg-white border border-slate-300 hover:border-slate-800 rounded-2xl flex items-center justify-between cursor-pointer transition shadow-sm"
                   >
-                    {m.label}
-                  </button>
-                ))}
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-black text-xs">
+                        t.
+                      </div>
+                      <span className="text-xs font-bold text-slate-900">
+                        {supplyItems.length === 0
+                          ? 'Selecciona los productos comprados'
+                          : `${supplyItems.length} producto${
+                              supplyItems.length > 1 ? 's' : ''
+                            } seleccionado${supplyItems.length > 1 ? 's' : ''}`}
+                      </span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400" />
+                  </div>
+                </div>
               </div>
             )}
 
-            {medioPago === 'efectivo' && !esCredito && cajaSesion?.estado === 'abierta' && (
-              <p className="text-[11px] text-emerald-700 mt-1.5 flex items-center gap-1 font-medium">
-                ✓ Se descontará automáticamente de la caja en turno ({formatCurrency(cajaSesion.monto_esperado)}).
-              </p>
-            )}
-          </div>
+            {/* Valor */}
+            <div>
+              <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
+                Valor*
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  required
+                  placeholder="0"
+                  value={valor}
+                  onChange={(e) => setValor(e.target.value)}
+                  className="w-full px-4 py-3 bg-white border border-slate-300 rounded-2xl text-base font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                />
+              </div>
+              {Number(valor) > 0 && (
+                <div className="text-right text-xs font-black text-rose-600 mt-1">
+                  Valor total = {formatCurrency(Number(valor))}
+                </div>
+              )}
+            </div>
 
-          <div className="pt-3 border-t border-slate-100 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              className="flex items-center gap-1.5 px-6 py-2.5 text-sm font-bold text-white bg-rose-600 hover:bg-rose-500 rounded-xl shadow-lg shadow-rose-600/25 transition"
-            >
-              <Check className="w-4 h-4" />
-              <span>Registrar Gasto</span>
-            </button>
-          </div>
-        </form>
+            {/* Nombre del gasto */}
+            <div>
+              <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
+                ¿Quieres darle un nombre a este gasto?
+              </label>
+              <input
+                type="text"
+                placeholder="Ej. 6 Alpaca, Pago de luz..."
+                value={nombreGasto}
+                onChange={(e) => setNombreGasto(e.target.value)}
+                className="w-full px-4 py-3 bg-white border border-slate-300 rounded-2xl text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-400"
+              />
+            </div>
+
+            {/* Proveedor */}
+            <div>
+              <div className="flex items-center gap-1 text-xs font-extrabold text-slate-700 mb-1.5">
+                <Crown className="w-3.5 h-3.5 text-sky-500 fill-sky-500" />
+                <span>Agrega un proveedor al gasto</span>
+              </div>
+              <select
+                value={proveedorId}
+                onChange={(e) => setProveedorId(e.target.value)}
+                className="w-full px-4 py-3 bg-white border border-slate-300 rounded-2xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-400 cursor-pointer"
+              >
+                <option value="">Selecciona un proveedor (opcional)</option>
+                {proveedores.map((prov) => (
+                  <option key={prov.id} value={prov.id}>
+                    {prov.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Selecciona el método de pago */}
+            {estadoPago === 'pagada' && (
+              <div>
+                <label className="block text-xs font-extrabold text-slate-700 mb-2">
+                  Selecciona el método de pago *
+                </label>
+                <div className="grid grid-cols-2 gap-2.5">
+                  {/* Efectivo */}
+                  <div
+                    onClick={() => setMedioPago('efectivo')}
+                    className={`p-3.5 rounded-2xl border text-center cursor-pointer transition relative flex flex-col items-center justify-center gap-1.5 ${
+                      medioPago === 'efectivo'
+                        ? 'border-emerald-600 bg-emerald-50/40 text-emerald-950 font-black'
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold'
+                    }`}
+                  >
+                    {medioPago === 'efectivo' && (
+                      <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px]">
+                        ✓
+                      </div>
+                    )}
+                    <Banknote className="w-5 h-5 text-slate-700" />
+                    <span className="text-xs">Efectivo</span>
+                  </div>
+
+                  {/* Tarjeta */}
+                  <div
+                    onClick={() => setMedioPago('tarjeta')}
+                    className={`p-3.5 rounded-2xl border text-center cursor-pointer transition relative flex flex-col items-center justify-center gap-1.5 ${
+                      medioPago === 'tarjeta'
+                        ? 'border-emerald-600 bg-emerald-50/40 text-emerald-950 font-black'
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold'
+                    }`}
+                  >
+                    {medioPago === 'tarjeta' && (
+                      <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px]">
+                        ✓
+                      </div>
+                    )}
+                    <CreditCard className="w-5 h-5 text-slate-700" />
+                    <span className="text-xs">Tarjeta</span>
+                  </div>
+
+                  {/* Transferencia */}
+                  <div
+                    onClick={() => setMedioPago('transferencia')}
+                    className={`p-3.5 rounded-2xl border text-center cursor-pointer transition relative flex flex-col items-center justify-center gap-1.5 ${
+                      medioPago === 'transferencia'
+                        ? 'border-emerald-600 bg-emerald-50/40 text-emerald-950 font-black'
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold'
+                    }`}
+                  >
+                    {medioPago === 'transferencia' && (
+                      <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px]">
+                        ✓
+                      </div>
+                    )}
+                    <Building2 className="w-5 h-5 text-slate-700" />
+                    <span className="text-xs">Transferencia bancaria</span>
+                  </div>
+
+                  {/* Nequi / Daviplata / Otro */}
+                  <div
+                    onClick={() => setMedioPago('nequi')}
+                    className={`p-3.5 rounded-2xl border text-center cursor-pointer transition relative flex flex-col items-center justify-center gap-1.5 ${
+                      medioPago === 'nequi'
+                        ? 'border-emerald-600 bg-emerald-50/40 text-emerald-950 font-black'
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold'
+                    }`}
+                  >
+                    {medioPago === 'nequi' && (
+                      <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px]">
+                        ✓
+                      </div>
+                    )}
+                    <Layers className="w-5 h-5 text-slate-700" />
+                    <span className="text-xs">Nequi / Otro</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </form>
+        </div>
+
+        {/* Footer Button */}
+        <div className="p-6 border-t border-slate-100 bg-white">
+          <button
+            type="submit"
+            form="expense-form"
+            className="w-full py-4 px-6 bg-slate-900 hover:bg-slate-800 active:scale-98 text-white rounded-2xl font-black text-sm shadow-xl transition"
+          >
+            Crear gasto
+          </button>
+        </div>
       </div>
+
+      {/* Select Supplies Modal */}
+      <SelectSuppliesModal
+        isOpen={isSupplyModalOpen}
+        onClose={() => setIsSupplyModalOpen(false)}
+        initialItems={supplyItems}
+        onConfirm={handleSuppliesConfirmed}
+      />
     </div>
   );
 };
