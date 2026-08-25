@@ -52,7 +52,7 @@ interface AppState {
   cambiarRol: (rol: RolUsuario) => void;
   actualizarNegocio: (datos: Partial<Negocio>) => void;
   actualizarPerfilUsuario: (datos: { nombre?: string; email?: string; telefono?: string | null; password?: string }) => void;
-  agregarEmpleado: (datos: { nombre: string; telefono?: string; password?: string; rol: RolUsuario; permisos?: PermisosEmpleado }) => void;
+  agregarEmpleado: (datos: { nombre: string; email?: string; telefono?: string; password?: string; rol: RolUsuario; permisos?: PermisosEmpleado }) => void;
   editarEmpleado: (id: string, datos: Partial<Usuario>) => void;
   eliminarEmpleado: (id: string) => void;
 
@@ -359,16 +359,20 @@ export const useAppStore = create<AppState>((set, get) => ({
     saveState();
   },
 
-  agregarEmpleado: ({ nombre, telefono, password, rol, permisos }) => {
+  agregarEmpleado: ({ nombre, email, telefono, password, rol, permisos }) => {
     const state = get();
     const defaultPerms = rol === 'administrador' ? PERMISOS_DEFAULT_ADMIN : PERMISOS_DEFAULT_VENDEDOR;
     const cleanNombre = nombre.trim().toLowerCase().replace(/\s+/g, '');
     const cleanNegocio = state.negocio.nombre.trim().toLowerCase().replace(/\s+/g, '');
+    const finalEmail = email?.trim()
+      ? email.trim().toLowerCase()
+      : `${cleanNombre}@${cleanNegocio || 'negocio'}.com`;
+
     const nuevo: Usuario = {
       id: 'u-' + Date.now(),
       negocio_id: state.negocio.id,
       nombre: nombre.trim(),
-      email: `${cleanNombre}@${cleanNegocio || 'negocio'}.com`,
+      email: finalEmail,
       telefono: telefono || null,
       password: password ? password.trim() : '1234',
       rol,

@@ -25,9 +25,11 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
 
   const [nombre, setNombre] = useState('');
   const [telefono, setTelefono] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('1234');
   const [rol, setRol] = useState<RolUsuario>('vendedor');
   const [permisos, setPermisos] = useState<PermisosEmpleado>(PERMISOS_DEFAULT_VENDEDOR);
+  const [error, setError] = useState('');
   const [isPermissionsOpen, setIsPermissionsOpen] = useState(false);
 
   useEffect(() => {
@@ -36,6 +38,7 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
       setTelefono(
         employeeToEdit.telefono ? employeeToEdit.telefono.replace('+57', '') : ''
       );
+      setEmail(employeeToEdit.email || '');
       setPassword(employeeToEdit.password || '1234');
       setRol(employeeToEdit.rol);
       setPermisos(
@@ -47,10 +50,12 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
     } else {
       setNombre('');
       setTelefono('');
+      setEmail('');
       setPassword('1234');
       setRol('vendedor');
       setPermisos(PERMISOS_DEFAULT_VENDEDOR);
     }
+    setError('');
   }, [employeeToEdit, isOpen]);
 
   if (!isOpen) return null;
@@ -64,18 +69,32 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nombre.trim()) return;
+    setError('');
 
-    const fullTelefono = telefono.trim()
-      ? telefono.startsWith('+')
-        ? telefono.trim()
-        : `+57${telefono.trim()}`
+    if (!nombre.trim()) {
+      setError('Por favor ingresa el nombre del empleado.');
+      return;
+    }
+
+    const cleanTel = telefono.trim();
+    const cleanEmail = email.trim();
+
+    if (!cleanTel && !cleanEmail) {
+      setError('Debes ingresar al menos el número celular o el correo electrónico del empleado para su inicio de sesión.');
+      return;
+    }
+
+    const fullTelefono = cleanTel
+      ? cleanTel.startsWith('+')
+        ? cleanTel
+        : `+57${cleanTel}`
       : undefined;
 
     if (employeeToEdit) {
       editarEmpleado(employeeToEdit.id, {
         nombre: nombre.trim(),
-        telefono: fullTelefono,
+        email: cleanEmail || undefined,
+        telefono: fullTelefono || null,
         password: password.trim() || '1234',
         rol,
         permisos,
@@ -83,6 +102,7 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
     } else {
       agregarEmpleado({
         nombre: nombre.trim(),
+        email: cleanEmail || undefined,
         telefono: fullTelefono,
         password: password.trim() || '1234',
         rol,
@@ -103,9 +123,9 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150 max-h-[92vh] flex flex-col">
         {/* Top Header */}
-        <div className="bg-emerald-600 px-6 py-4 flex items-center justify-between text-white border-b border-emerald-700">
+        <div className="bg-emerald-600 px-6 py-4 flex items-center justify-between text-white border-b border-emerald-700 shrink-0">
           <div className="flex items-center gap-2.5">
             <button
               onClick={onClose}
@@ -126,7 +146,13 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
+          {error && (
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 text-xs font-bold animate-in fade-in">
+              {error}
+            </div>
+          )}
+
           <div>
             <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
               Nombre *
@@ -134,7 +160,7 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
             <input
               type="text"
               required
-              placeholder="Ej. Manolo, Jackeline..."
+              placeholder="Ej. Manolo, Jackeline, Carlos..."
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
               className="w-full px-4 py-3 bg-white border border-slate-300 rounded-2xl text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -143,7 +169,7 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
 
           <div>
             <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
-              Número celular de tu empleado *
+              Número celular (opcional si ingresas correo)
             </label>
             <div className="flex items-center bg-white border border-slate-300 rounded-2xl overflow-hidden focus-within:ring-2 focus-within:ring-emerald-500">
               <div className="flex items-center gap-1.5 px-3.5 py-3 bg-slate-50 border-r border-slate-200 text-xs font-bold text-slate-700 select-none">
@@ -158,6 +184,22 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
                 className="w-full px-3.5 py-3 text-sm font-semibold text-slate-900 focus:outline-none"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
+              Correo electrónico (opcional si ingresas celular)
+            </label>
+            <input
+              type="email"
+              placeholder="carlos@correo.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-3 bg-white border border-slate-300 rounded-2xl text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+            <p className="text-[11px] text-slate-400 mt-1">
+              Ingresa el celular, el correo o ambos. Al menos uno es requerido para el inicio de sesión.
+            </p>
           </div>
 
           <div>
