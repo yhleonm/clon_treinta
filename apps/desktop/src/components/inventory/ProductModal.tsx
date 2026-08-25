@@ -14,7 +14,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   onClose,
   productToEdit,
 }) => {
-  const { categorias, agregarProducto, editarProducto } = useAppStore();
+  const { categorias, agregarCategoria, agregarProducto, editarProducto } = useAppStore();
 
   const [nombre, setNombre] = useState('');
   const [sku, setSku] = useState('');
@@ -24,6 +24,19 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   const [stockActual, setStockActual] = useState('10');
   const [stockMinimo, setStockMinimo] = useState('5');
   const [imagenUrl, setImagenUrl] = useState('');
+
+  // Nueva Categoría inline
+  const [isAddingCat, setIsAddingCat] = useState(false);
+  const [newCatNombre, setNewCatNombre] = useState('');
+
+  const handleSaveNewCat = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!newCatNombre.trim()) return;
+    const nueva = agregarCategoria(newCatNombre.trim());
+    setCategoriaId(nueva.id);
+    setNewCatNombre('');
+    setIsAddingCat(false);
+  };
 
   useEffect(() => {
     if (productToEdit) {
@@ -109,21 +122,65 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold uppercase text-slate-600 mb-1">
-                Categoría
-              </label>
-              <select
-                value={categoriaId}
-                onChange={(e) => setCategoriaId(e.target.value)}
-                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              >
-                <option value="">Sin categoría</option>
-                {categorias.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nombre}
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold uppercase text-slate-600">
+                  Categoría
+                </label>
+                {!isAddingCat && (
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingCat(true)}
+                    className="text-[11px] text-emerald-600 font-bold hover:underline flex items-center gap-0.5"
+                  >
+                    <Plus className="w-3 h-3" /> Nueva
+                  </button>
+                )}
+              </div>
+
+              {isAddingCat ? (
+                <div className="flex items-center gap-1.5 animate-in fade-in duration-150">
+                  <input
+                    type="text"
+                    placeholder="Nombre categoría..."
+                    value={newCatNombre}
+                    onChange={(e) => setNewCatNombre(e.target.value)}
+                    className="flex-1 px-2.5 py-2 bg-slate-50 border border-emerald-400 rounded-xl text-xs font-medium text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSaveNewCat}
+                    className="p-2 bg-emerald-500 text-slate-950 rounded-xl hover:bg-emerald-400 transition shadow-sm"
+                    title="Guardar Categoría"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAddingCat(false);
+                      setNewCatNombre('');
+                    }}
+                    className="p-2 bg-slate-200 text-slate-600 rounded-xl hover:bg-slate-300 transition"
+                    title="Cancelar"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <select
+                  value={categoriaId}
+                  onChange={(e) => setCategoriaId(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="">Sin categoría</option>
+                  {categorias.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nombre}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
             <div>
               <label className="block text-xs font-bold uppercase text-slate-600 mb-1">
@@ -134,7 +191,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 placeholder="BEB-001"
                 value={sku}
                 onChange={(e) => setSku(e.target.value)}
-                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
           </div>

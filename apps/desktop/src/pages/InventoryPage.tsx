@@ -15,6 +15,7 @@ import { useAppStore } from '../store/useAppStore';
 import { formatCurrency, Producto } from '@treinta/shared';
 import { ProductModal } from '../components/inventory/ProductModal';
 import { StockAdjustModal } from '../components/inventory/StockAdjustModal';
+import { CategoryModal } from '../components/inventory/CategoryModal';
 
 export const InventoryPage: React.FC = () => {
   const { productos, categorias, eliminarProducto, usuarioActual } = useAppStore();
@@ -23,6 +24,7 @@ export const InventoryPage: React.FC = () => {
   const [selectedCategoria, setSelectedCategoria] = useState('todas');
   const [soloBajoStock, setSoloBajoStock] = useState(false);
 
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [productToEdit, setProductToEdit] = useState<Producto | null>(null);
 
@@ -87,16 +89,25 @@ export const InventoryPage: React.FC = () => {
 
         <div className="flex items-center gap-2">
           {usuarioActual.rol !== 'empleado' && (
-            <button
-              onClick={() => {
-                setProductToEdit(null);
-                setIsProductModalOpen(true);
-              }}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-md shadow-emerald-500/20 transition"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Nuevo Producto</span>
-            </button>
+            <>
+              <button
+                onClick={() => setIsCategoryModalOpen(true)}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 shadow-sm transition"
+              >
+                <Tag className="w-3.5 h-3.5 text-slate-500" />
+                <span>Categorías</span>
+              </button>
+              <button
+                onClick={() => {
+                  setProductToEdit(null);
+                  setIsProductModalOpen(true);
+                }}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-md shadow-emerald-500/20 transition"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Nuevo Producto</span>
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -323,6 +334,11 @@ export const InventoryPage: React.FC = () => {
       </div>
 
       {/* Modals */}
+      <CategoryModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+      />
+
       <ProductModal
         isOpen={isProductModalOpen}
         onClose={() => {

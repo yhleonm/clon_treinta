@@ -43,6 +43,8 @@ interface AppState {
 
   // Catálogo e Inventario
   categorias: Categoria[];
+  agregarCategoria: (nombre: string, colorHex?: string) => Categoria;
+  eliminarCategoria: (id: string) => void;
   productos: Producto[];
   agregarProducto: (producto: Omit<Producto, 'id' | 'negocio_id' | 'created_at' | 'updated_at'>) => void;
   editarProducto: (id: string, datos: Partial<Producto>) => void;
@@ -139,6 +141,28 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   categorias: savedState?.categorias || INITIAL_CATEGORIAS,
+  agregarCategoria: (nombre: string, colorHex: string = '#10B981') => {
+    const nueva: Categoria = {
+      id: 'cat-' + Date.now(),
+      negocio_id: get().negocio.id,
+      nombre: nombre.trim(),
+      color_hex: colorHex,
+      icono: 'tag',
+      activo: true,
+      created_at: new Date().toISOString(),
+    };
+    set((s) => ({ categorias: [...s.categorias, nueva] }));
+    saveState();
+    return nueva;
+  },
+
+  eliminarCategoria: (id: string) => {
+    set((s) => ({
+      categorias: s.categorias.filter((c) => c.id !== id),
+    }));
+    saveState();
+  },
+
   productos: savedState?.productos || INITIAL_PRODUCTOS,
 
   agregarProducto: (prodData) => {
