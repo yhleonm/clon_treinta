@@ -159,7 +159,7 @@ export const SelectSuppliesModal: React.FC<SelectSuppliesModalProps> = ({
                 placeholder="Buscar productos"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                className="w-full pl-10 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
           </div>
@@ -170,7 +170,7 @@ export const SelectSuppliesModal: React.FC<SelectSuppliesModalProps> = ({
               onClick={() => setSelectedCategory('todos')}
               className={`px-4 py-1.5 rounded-xl text-xs font-extrabold transition-all shrink-0 ${
                 selectedCategory === 'todos'
-                  ? 'bg-[#FFCC00] text-slate-950 shadow-sm'
+                  ? 'bg-emerald-600 text-white shadow-md font-black'
                   : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
               }`}
             >
@@ -183,7 +183,7 @@ export const SelectSuppliesModal: React.FC<SelectSuppliesModalProps> = ({
                 onClick={() => setSelectedCategory(cat.id)}
                 className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
                   selectedCategory === cat.id
-                    ? 'bg-[#FFCC00] text-slate-950 shadow-sm font-extrabold'
+                    ? 'bg-emerald-600 text-white shadow-md font-black'
                     : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
                 }`}
               >

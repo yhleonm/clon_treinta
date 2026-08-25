@@ -123,7 +123,7 @@ export const PosPage: React.FC<PosPageProps> = ({
                 placeholder="Buscar productos"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-2xl text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400 shadow-sm"
+                className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-2xl text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm"
               />
             </div>
           </div>
@@ -134,7 +134,7 @@ export const PosPage: React.FC<PosPageProps> = ({
               onClick={() => setSelectedCategory('todos')}
               className={`px-4 py-1.5 rounded-xl text-xs font-extrabold transition-all shrink-0 ${
                 selectedCategory === 'todos'
-                  ? 'bg-[#FFCC00] text-slate-950 shadow-sm'
+                  ? 'bg-emerald-600 text-white shadow-md font-black'
                   : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
               }`}
             >
@@ -149,7 +149,7 @@ export const PosPage: React.FC<PosPageProps> = ({
                   onClick={() => setSelectedCategory(cat.id)}
                   className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
                     isSelected
-                      ? 'bg-[#FFCC00] text-slate-950 shadow-sm font-extrabold'
+                      ? 'bg-emerald-600 text-white shadow-md font-black'
                       : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
                   }`}
                 >
@@ -170,7 +170,7 @@ export const PosPage: React.FC<PosPageProps> = ({
                 <div
                   key={p.id}
                   onClick={() => agregarAlCarrito(p)}
-                  className="bg-white rounded-3xl p-4 border border-slate-200 shadow-sm hover:shadow-md hover:border-amber-300 transition-all cursor-pointer flex flex-col items-center text-center relative group active:scale-98"
+                  className="bg-white rounded-3xl p-4 border border-slate-200 shadow-sm hover:shadow-md hover:border-emerald-500 transition-all cursor-pointer flex flex-col items-center text-center relative group active:scale-98"
                 >
                   {/* Low stock icon badge */}
                   {isLowStock && (

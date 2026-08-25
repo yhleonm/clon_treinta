@@ -42,8 +42,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
       <div className="flex-1 overflow-y-auto">
         {/* Brand Header */}
         <div className="px-5 pt-4 pb-3 flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-[#FFCC00] flex items-center justify-center font-black text-slate-950 text-base shadow-sm">
-            t.
+          <div className="w-8 h-8 rounded-xl bg-emerald-600 flex items-center justify-center font-black text-white text-base shadow-sm">
+            30
           </div>
           <span className="font-black text-xl text-slate-900 tracking-tight">Treinta</span>
         </div>
@@ -52,15 +52,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
         <div className="px-4 py-2">
           <div className="flex items-center justify-between p-2 rounded-2xl hover:bg-slate-50 transition cursor-pointer border border-transparent hover:border-slate-200">
             <div className="flex items-center gap-2.5 overflow-hidden">
-              <div className="w-9 h-9 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center font-black text-sm shrink-0">
-                t.
+              <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-black text-sm shrink-0">
+                30
               </div>
               <div className="overflow-hidden">
                 <div className="flex items-center gap-1">
                   <span className="font-extrabold text-xs text-slate-900 truncate">
                     {negocio.nombre.length > 12 ? `${negocio.nombre.slice(0, 12)}...` : negocio.nombre}
                   </span>
-                  <Crown className="w-3.5 h-3.5 text-amber-500 fill-amber-500 shrink-0" />
+                  <Crown className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600 shrink-0" />
                 </div>
                 <p className="text-[11px] text-slate-400 capitalize font-medium">
                   {usuarioActual.rol}
@@ -82,11 +82,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
             onClick={() => onSelectTab('pos')}
             className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-bold transition ${
               currentTab === 'pos'
-                ? 'bg-amber-100/90 text-amber-950 shadow-sm'
+                ? 'bg-emerald-600 text-white shadow-md font-black'
                 : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
             }`}
           >
-            <Tag className="w-4 h-4 text-amber-800 shrink-0" />
+            <Tag className="w-4 h-4 shrink-0" />
             <span>Vender</span>
           </button>
 
@@ -96,11 +96,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
               onClick={() => onSelectTab('balance')}
               className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-bold transition ${
                 currentTab === 'balance'
-                  ? 'bg-amber-100/90 text-amber-950 shadow-sm'
+                  ? 'bg-emerald-600 text-white shadow-md font-black'
                   : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
               }`}
             >
-              <FileSpreadsheet className="w-4 h-4 text-slate-600 shrink-0" />
+              <FileSpreadsheet className="w-4 h-4 shrink-0" />
               <span>Balance</span>
             </button>
           ) : (
@@ -119,7 +119,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
               <FileText className="w-4 h-4 text-slate-500" />
               <span>Facturación electró...</span>
             </div>
-            <Crown className="w-3.5 h-3.5 text-sky-500 fill-sky-500" />
+            <Crown className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600" />
           </div>
 
           {/* 4. Estadísticas */}
@@ -128,7 +128,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
               <TrendingUp className="w-4 h-4 text-slate-500" />
               <span>Estadísticas</span>
             </div>
-            <Crown className="w-3.5 h-3.5 text-sky-500 fill-sky-500" />
+            <Crown className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600" />
           </div>
 
           {/* 5. Inventario */}
@@ -136,11 +136,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
             onClick={() => onSelectTab('inventory')}
             className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-bold transition ${
               currentTab === 'inventory'
-                ? 'bg-amber-100/90 text-amber-950 shadow-sm'
+                ? 'bg-emerald-600 text-white shadow-md font-black'
                 : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
             }`}
           >
-            <Package className="w-4 h-4 text-slate-600 shrink-0" />
+            <Package className="w-4 h-4 shrink-0" />
             <span>Inventario</span>
           </button>
 
@@ -150,7 +150,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
               <FileCheck className="w-4 h-4 text-slate-500" />
               <span>Cotizaciones</span>
             </div>
-            <Crown className="w-3.5 h-3.5 text-sky-500 fill-sky-500" />
+            <Crown className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600" />
           </div>
 
           {/* 7. Empleados */}
@@ -159,15 +159,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
               onClick={() => onSelectTab('employees')}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-bold transition ${
                 currentTab === 'employees'
-                  ? 'bg-amber-100/90 text-amber-950 shadow-sm'
+                  ? 'bg-emerald-600 text-white shadow-md font-black'
                   : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
               }`}
             >
               <div className="flex items-center gap-3">
-                <Users className="w-4 h-4 text-slate-600 shrink-0" />
+                <Users className="w-4 h-4 shrink-0" />
                 <span>Empleados</span>
               </div>
-              <Crown className="w-3.5 h-3.5 text-sky-500 fill-sky-500" />
+              <Crown className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600" />
             </button>
           ) : null}
 
@@ -191,15 +191,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
             onClick={() => onSelectTab('contacts')}
             className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-bold transition ${
               currentTab === 'contacts'
-                ? 'bg-amber-100/90 text-amber-950 shadow-sm'
+                ? 'bg-emerald-600 text-white shadow-md font-black'
                 : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
             }`}
           >
             <div className="flex items-center gap-3">
-              <UserCheck className="w-4 h-4 text-slate-600 shrink-0" />
+              <UserCheck className="w-4 h-4 shrink-0" />
               <span>Clientes</span>
             </div>
-            <Crown className="w-3.5 h-3.5 text-sky-500 fill-sky-500" />
+            <Crown className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600" />
           </button>
 
           <button
@@ -207,10 +207,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
             className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition"
           >
             <div className="flex items-center gap-3">
-              <Truck className="w-4 h-4 text-slate-600 shrink-0" />
+              <Truck className="w-4 h-4 shrink-0" />
               <span>Proveedores</span>
             </div>
-            <Crown className="w-3.5 h-3.5 text-sky-500 fill-sky-500" />
+            <Crown className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600" />
           </button>
         </div>
       </div>
@@ -218,8 +218,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
       {/* FOOTER & LOGOUT */}
       <div className="p-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-full bg-[#FFCC00] text-slate-950 flex items-center justify-center font-black text-lg shadow-md cursor-pointer hover:scale-105 transition">
-            t.
+          <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center font-black text-lg shadow-md cursor-pointer hover:bg-emerald-700 transition">
+            30
           </div>
           <div>
             <div className="flex items-center gap-1 text-xs font-extrabold text-slate-800">
