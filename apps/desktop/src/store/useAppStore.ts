@@ -170,6 +170,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const state = get();
     const query = emailOrPhone.trim().toLowerCase();
     const cleanPhone = query.replace(/\D/g, '');
+    const isPhone = cleanPhone.length >= 7;
 
     // Only search in valid users of the active business
     const validUsers = state.usuarios.filter(
@@ -178,11 +179,14 @@ export const useAppStore = create<AppState>((set, get) => ({
         (u.id !== 'u-jackeline' && u.id !== 'u-manolo')
     );
 
-    const found = validUsers.find(
-      (u) =>
-        u.email.toLowerCase() === query ||
-        (u.telefono && u.telefono.replace(/\D/g, '').includes(cleanPhone))
-    );
+    const found = validUsers.find((u) => {
+      const emailMatch = u.email.toLowerCase() === query;
+      const nameMatch = u.nombre.toLowerCase() === query;
+      const phoneMatch = isPhone && u.telefono
+        ? u.telefono.replace(/\D/g, '').endsWith(cleanPhone) || u.telefono.replace(/\D/g, '') === cleanPhone
+        : false;
+      return emailMatch || nameMatch || phoneMatch;
+    });
 
     if (!found) {
       return {
