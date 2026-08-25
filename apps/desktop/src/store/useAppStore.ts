@@ -15,6 +15,9 @@ import {
   MedioPago,
   RolUsuario,
   EstadoCuenta,
+  PermisosEmpleado,
+  PERMISOS_DEFAULT_ADMIN,
+  PERMISOS_DEFAULT_VENDEDOR,
   generateFolio,
   AbonoCuentaCobrar,
   AbonoCuentaPagar,
@@ -40,6 +43,9 @@ interface AppState {
   usuarios: Usuario[];
   setUsuarioActual: (usuario: Usuario) => void;
   cambiarRol: (rol: RolUsuario) => void;
+  agregarEmpleado: (datos: { nombre: string; telefono?: string; rol: RolUsuario; permisos?: PermisosEmpleado }) => void;
+  editarEmpleado: (id: string, datos: Partial<Usuario>) => void;
+  eliminarEmpleado: (id: string) => void;
 
   // Catálogo e Inventario
   categorias: Categoria[];
@@ -136,6 +142,45 @@ export const useAppStore = create<AppState>((set, get) => ({
   cambiarRol: (rol) => {
     set((state) => ({
       usuarioActual: { ...state.usuarioActual, rol },
+    }));
+    saveState();
+  },
+
+  agregarEmpleado: ({ nombre, telefono, rol, permisos }) => {
+    const state = get();
+    const defaultPerms = rol === 'administrador' ? PERMISOS_DEFAULT_ADMIN : PERMISOS_DEFAULT_VENDEDOR;
+    const nuevo: Usuario = {
+      id: 'u-' + Date.now(),
+      negocio_id: state.negocio.id,
+      nombre: nombre.trim(),
+      email: `${nombre.toLowerCase().replace(/\s+/g, '')}@negocio.com`,
+      telefono: telefono || null,
+      rol,
+      permisos: permisos || defaultPerms,
+      activo: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    set((s) => ({ usuarios: [...s.usuarios, nuevo] }));
+    saveState();
+  },
+
+  editarEmpleado: (id, datos) => {
+    set((s) => ({
+      usuarios: s.usuarios.map((u) =>
+        u.id === id ? { ...u, ...datos, updated_at: new Date().toISOString() } : u
+      ),
+      usuarioActual:
+        s.usuarioActual.id === id
+          ? { ...s.usuarioActual, ...datos, updated_at: new Date().toISOString() }
+          : s.usuarioActual,
+    }));
+    saveState();
+  },
+
+  eliminarEmpleado: (id) => {
+    set((s) => ({
+      usuarios: s.usuarios.filter((u) => u.id !== id),
     }));
     saveState();
   },

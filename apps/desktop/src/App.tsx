@@ -7,6 +7,7 @@ import { InventoryPage } from './pages/InventoryPage';
 import { ExpensesPage } from './pages/ExpensesPage';
 import { CreditPage } from './pages/CreditPage';
 import { ContactsPage } from './pages/ContactsPage';
+import { EmployeesPage } from './pages/EmployeesPage';
 import { CashRegisterModal } from './components/caja/CashRegisterModal';
 import { ExpenseModal } from './components/expenses/ExpenseModal';
 
@@ -45,6 +46,7 @@ export function App() {
           )}
           {currentTab === 'credit' && <CreditPage />}
           {currentTab === 'contacts' && <ContactsPage />}
+          {currentTab === 'employees' && <EmployeesPage />}
         </main>
       </div>
 

@@ -297,8 +297,8 @@ export const BalancePage: React.FC<BalancePageProps> = ({
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden select-none bg-slate-100">
-      {/* 1. TOP YELLOW BANNER (EXACT TREINTA STYLE) */}
-      <div className="bg-[#FFCC00] text-slate-950 px-6 pt-4 pb-3 shadow-md shrink-0 border-b border-amber-400">
+      {/* 1. TOP GREEN BANNER (TREINTA EMERALD THEME) */}
+      <div className="bg-emerald-600 text-white px-6 pt-4 pb-3 shadow-md shrink-0 border-b border-emerald-700">
         {/* Title Bar */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
@@ -309,13 +309,13 @@ export const BalancePage: React.FC<BalancePageProps> = ({
 
           <div className="flex items-center gap-2">
             {/* View Mode Switcher */}
-            <div className="bg-amber-300/80 p-0.5 rounded-xl flex items-center text-xs font-bold">
+            <div className="bg-emerald-700/90 p-0.5 rounded-xl flex items-center text-xs font-bold border border-emerald-500/50">
               <button
                 onClick={() => setViewMode('treinta_detail')}
                 className={`px-3 py-1.5 rounded-lg transition ${
                   viewMode === 'treinta_detail'
-                    ? 'bg-slate-950 text-white shadow-sm'
-                    : 'text-slate-900 hover:bg-amber-300'
+                    ? 'bg-white text-slate-950 shadow-sm font-black'
+                    : 'text-emerald-100 hover:bg-emerald-700'
                 }`}
               >
                 Vista Treinta
@@ -324,8 +324,8 @@ export const BalancePage: React.FC<BalancePageProps> = ({
                 onClick={() => setViewMode('transactions_list')}
                 className={`px-3 py-1.5 rounded-lg transition ${
                   viewMode === 'transactions_list'
-                    ? 'bg-slate-950 text-white shadow-sm'
-                    : 'text-slate-900 hover:bg-amber-300'
+                    ? 'bg-white text-slate-950 shadow-sm font-black'
+                    : 'text-emerald-100 hover:bg-emerald-700'
                 }`}
               >
                 Tabla & Fiados
@@ -335,7 +335,7 @@ export const BalancePage: React.FC<BalancePageProps> = ({
             {/* PDF Export Button */}
             <button
               onClick={handleExportPDF}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-md transition"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-md transition"
               title="Descargar reporte en formato PDF"
             >
               <Download className="w-3.5 h-3.5" />
@@ -356,8 +356,8 @@ export const BalancePage: React.FC<BalancePageProps> = ({
                     onClick={() => setSelectedDayOffset(d.offset)}
                     className={`px-5 py-1.5 rounded-xl text-xs font-extrabold transition-all duration-150 ${
                       isSelected
-                        ? 'bg-white text-slate-950 shadow-md ring-1 ring-slate-900/10'
-                        : 'text-slate-900 hover:bg-amber-300/70'
+                        ? 'bg-white text-emerald-950 shadow-md ring-1 ring-white/20'
+                        : 'text-emerald-100 hover:bg-emerald-700/70'
                     }`}
                   >
                     {d.label}
@@ -365,24 +365,24 @@ export const BalancePage: React.FC<BalancePageProps> = ({
                 );
               })
             ) : (
-              <span className="text-xs font-bold text-slate-900 px-2">
+              <span className="text-xs font-bold text-emerald-100 px-2">
                 Filtro activo: {periodoFiltro.toUpperCase()}
               </span>
             )}
           </div>
 
           {/* Period selector dropdown */}
-          <div className="flex items-center gap-1.5 bg-white/70 backdrop-blur-sm border border-amber-300 rounded-xl px-2.5 py-1 text-xs font-bold text-slate-900">
-            <Calendar className="w-3.5 h-3.5 text-slate-800" />
+          <div className="flex items-center gap-1.5 bg-emerald-700/90 border border-emerald-500/60 rounded-xl px-2.5 py-1 text-xs font-bold text-white">
+            <Calendar className="w-3.5 h-3.5 text-emerald-200" />
             <select
               value={periodoFiltro}
               onChange={(e) => setPeriodoFiltro(e.target.value as any)}
-              className="bg-transparent font-bold focus:outline-none cursor-pointer"
+              className="bg-transparent font-bold focus:outline-none cursor-pointer text-white"
             >
-              <option value="dia">Por Día</option>
-              <option value="semana">Últimos 7 Días</option>
-              <option value="mes">Este Mes</option>
-              <option value="todo">Histórico</option>
+              <option value="dia" className="text-slate-900">Por Día</option>
+              <option value="semana" className="text-slate-900">Últimos 7 Días</option>
+              <option value="mes" className="text-slate-900">Este Mes</option>
+              <option value="todo" className="text-slate-900">Histórico</option>
             </select>
           </div>
         </div>

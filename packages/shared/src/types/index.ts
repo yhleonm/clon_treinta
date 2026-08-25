@@ -1,4 +1,4 @@
-export type RolUsuario = 'propietario' | 'administrador' | 'empleado';
+export type RolUsuario = 'propietario' | 'administrador' | 'vendedor' | 'empleado';
 
 export type MedioPago = 
   | 'efectivo'
@@ -35,12 +35,97 @@ export interface Negocio {
   updated_at: string;
 }
 
+export interface PermisosEmpleado {
+  // Ventas y gastos
+  registrar_ventas_gastos: boolean;
+  editar_eliminar_ventas_gastos: boolean;
+  visualizar_movimientos: boolean;
+  ver_resumen_movimientos: boolean;
+  editar_precio_venta: boolean;
+  editar_fecha_venta: boolean;
+
+  // Inventario
+  crear_productos: boolean;
+  editar_eliminar_productos: boolean;
+  ver_inventario: boolean;
+  permitir_conteo_inventario: boolean;
+  descargar_reporte_conteo: boolean;
+  ver_historial_stock: boolean;
+
+  // Reportes
+  descargar_reporte_inventario: boolean;
+  descargar_reporte_movimientos: boolean;
+  usar_filtros_balance: boolean;
+  ver_estadisticas: boolean;
+
+  // Clientes y proveedores
+  crear_clientes_proveedores: boolean;
+  editar_eliminar_clientes_proveedores: boolean;
+
+  // Configuraciones
+  ver_info_negocio: boolean;
+
+  // Empleados
+  crear_empleados: boolean;
+  editar_eliminar_empleados: boolean;
+}
+
+export const PERMISOS_DEFAULT_ADMIN: PermisosEmpleado = {
+  registrar_ventas_gastos: true,
+  editar_eliminar_ventas_gastos: true,
+  visualizar_movimientos: true,
+  ver_resumen_movimientos: true,
+  editar_precio_venta: true,
+  editar_fecha_venta: true,
+  crear_productos: true,
+  editar_eliminar_productos: true,
+  ver_inventario: true,
+  permitir_conteo_inventario: true,
+  descargar_reporte_conteo: true,
+  ver_historial_stock: true,
+  descargar_reporte_inventario: true,
+  descargar_reporte_movimientos: true,
+  usar_filtros_balance: true,
+  ver_estadisticas: true,
+  crear_clientes_proveedores: true,
+  editar_eliminar_clientes_proveedores: true,
+  ver_info_negocio: true,
+  crear_empleados: true,
+  editar_eliminar_empleados: true,
+};
+
+export const PERMISOS_DEFAULT_VENDEDOR: PermisosEmpleado = {
+  registrar_ventas_gastos: true,
+  editar_eliminar_ventas_gastos: false,
+  visualizar_movimientos: true,
+  ver_resumen_movimientos: false,
+  editar_precio_venta: true,
+  editar_fecha_venta: false,
+  crear_productos: false,
+  editar_eliminar_productos: false,
+  ver_inventario: true,
+  permitir_conteo_inventario: false,
+  descargar_reporte_conteo: false,
+  ver_historial_stock: false,
+  descargar_reporte_inventario: false,
+  descargar_reporte_movimientos: false,
+  usar_filtros_balance: false,
+  ver_estadisticas: true,
+  crear_clientes_proveedores: false,
+  editar_eliminar_clientes_proveedores: false,
+  ver_info_negocio: false,
+  crear_empleados: false,
+  editar_eliminar_empleados: false,
+};
+
 export interface Usuario {
   id: string;
   negocio_id: string;
   nombre: string;
   email: string;
+  telefono?: string | null;
   rol: RolUsuario;
+  permisos?: PermisosEmpleado;
   activo: boolean;
   created_at: string;
   updated_at: string;

@@ -39,10 +39,10 @@ export function exportBalanceToPDF(params: ExportBalancePdfParams) {
   const grayColor: [number, number, number] = [100, 116, 139]; // Slate 500
 
   // 1. Header Banner
-  doc.setFillColor(250, 204, 21); // Amber 400 (Treinta Yellow Header)
+  doc.setFillColor(...primaryColor); // Treinta Emerald Header
   doc.rect(0, 0, 210, 26, 'F');
 
-  doc.setTextColor(15, 23, 42);
+  doc.setTextColor(255, 255, 255);
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
   doc.text('DETALLE DEL BALANCE - REPORTE FINANCIERO', 14, 17);

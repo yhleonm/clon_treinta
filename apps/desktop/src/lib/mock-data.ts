@@ -1,4 +1,18 @@
-import { Negocio, Usuario, Categoria, Producto, Cliente, Proveedor, CajaSesion, Venta, Gasto, CuentaPorCobrar, CuentaPorPagar } from '@treinta/shared';
+import {
+  Negocio,
+  Usuario,
+  Categoria,
+  Producto,
+  Cliente,
+  Proveedor,
+  CajaSesion,
+  Venta,
+  Gasto,
+  CuentaPorCobrar,
+  CuentaPorPagar,
+  PERMISOS_DEFAULT_ADMIN,
+  PERMISOS_DEFAULT_VENDEDOR,
+} from '@treinta/shared';
 
 export const INITIAL_NEGOCIO: Negocio = {
   id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
@@ -18,21 +32,25 @@ export const INITIAL_NEGOCIO: Negocio = {
 
 export const INITIAL_USUARIOS: Usuario[] = [
   {
-    id: 'u1111111-1111-1111-1111-111111111111',
+    id: 'u-jackeline',
     negocio_id: INITIAL_NEGOCIO.id,
-    nombre: 'Alejandro Ramos',
-    email: 'admin@eltriunfo.com',
-    rol: 'propietario',
+    nombre: 'Jackeline',
+    email: 'jackeline@eltriunfo.com',
+    telefono: '+573143574221',
+    rol: 'administrador',
+    permisos: PERMISOS_DEFAULT_ADMIN,
     activo: true,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },
   {
-    id: 'u2222222-2222-2222-2222-222222222222',
+    id: 'u-manolo',
     negocio_id: INITIAL_NEGOCIO.id,
-    nombre: 'Laura Cajera',
-    email: 'laura@eltriunfo.com',
-    rol: 'empleado',
+    nombre: 'Manolo',
+    email: 'manolo@eltriunfo.com',
+    telefono: '+573123822341',
+    rol: 'vendedor',
+    permisos: PERMISOS_DEFAULT_VENDEDOR,
     activo: true,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),

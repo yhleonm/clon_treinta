@@ -17,7 +17,8 @@ export type TabView =
   | 'inventory'
   | 'expenses'
   | 'credit'
-  | 'contacts';
+  | 'contacts'
+  | 'employees';
 
 interface SidebarProps {
   currentTab: TabView;
@@ -28,12 +29,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
   const { negocio, usuarioActual, cambiarRol } = useAppStore();
 
   const navItems: { id: TabView; label: string; icon: React.ReactNode; roles: string[] }[] = [
-    { id: 'pos', label: 'Nueva Venta (POS)', icon: <ShoppingCart className="w-5 h-5" />, roles: ['propietario', 'administrador', 'empleado'] },
+    { id: 'pos', label: 'Nueva Venta (POS)', icon: <ShoppingCart className="w-5 h-5" />, roles: ['propietario', 'administrador', 'vendedor', 'empleado'] },
     { id: 'balance', label: 'Balance General', icon: <LayoutDashboard className="w-5 h-5" />, roles: ['propietario', 'administrador'] },
-    { id: 'inventory', label: 'Inventario & Stock', icon: <Package className="w-5 h-5" />, roles: ['propietario', 'administrador', 'empleado'] },
+    { id: 'inventory', label: 'Inventario & Stock', icon: <Package className="w-5 h-5" />, roles: ['propietario', 'administrador', 'vendedor', 'empleado'] },
     { id: 'expenses', label: 'Gastos & Egresos', icon: <TrendingDown className="w-5 h-5" />, roles: ['propietario', 'administrador'] },
     { id: 'credit', label: 'Cuentas (Fiados)', icon: <Clock className="w-5 h-5" />, roles: ['propietario', 'administrador'] },
     { id: 'contacts', label: 'Clientes y Prov.', icon: <Users className="w-5 h-5" />, roles: ['propietario', 'administrador'] },
+    { id: 'employees', label: 'Empleados & Roles', icon: <Shield className="w-5 h-5" />, roles: ['propietario', 'administrador'] },
   ];
 
   return (
