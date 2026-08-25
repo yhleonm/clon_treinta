@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Package, Plus, Check } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { Producto } from '@treinta/shared';
@@ -87,8 +88,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 z-[70] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 select-none animate-in fade-in duration-150">
+  return createPortal(
+    <div className="fixed inset-0 z-[110] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 select-none animate-in fade-in duration-150">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
           <div className="flex items-center gap-2">
@@ -113,115 +114,101 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             <input
               type="text"
               required
-              placeholder="Ej. Arroz Diana 1kg, Coca Cola 400ml..."
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              placeholder="Ej. Gaseosa Postobón 350ml"
+              className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-bold uppercase text-slate-600">
-                  Categoría
-                </label>
-                {!isAddingCat && (
-                  <button
-                    type="button"
-                    onClick={() => setIsAddingCat(true)}
-                    className="text-[11px] text-emerald-600 font-bold hover:underline flex items-center gap-0.5"
-                  >
-                    <Plus className="w-3 h-3" /> Nueva
-                  </button>
-                )}
-              </div>
-
-              {isAddingCat ? (
-                <div className="flex items-center gap-1.5 animate-in fade-in duration-150">
-                  <input
-                    type="text"
-                    placeholder="Nombre categoría..."
-                    value={newCatNombre}
-                    onChange={(e) => setNewCatNombre(e.target.value)}
-                    className="flex-1 px-2.5 py-2 bg-slate-50 border border-emerald-400 rounded-xl text-xs font-medium text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    autoFocus
-                  />
-                  <button
-                    type="button"
-                    onClick={handleSaveNewCat}
-                    className="p-2 bg-emerald-500 text-slate-950 rounded-xl hover:bg-emerald-400 transition shadow-sm"
-                    title="Guardar Categoría"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsAddingCat(false);
-                      setNewCatNombre('');
-                    }}
-                    className="p-2 bg-slate-200 text-slate-600 rounded-xl hover:bg-slate-300 transition"
-                    title="Cancelar"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ) : (
-                <select
-                  value={categoriaId}
-                  onChange={(e) => setCategoriaId(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-bold uppercase text-slate-600">
+                Categoría
+              </label>
+              {!isAddingCat && (
+                <button
+                  type="button"
+                  onClick={() => setIsAddingCat(true)}
+                  className="text-xs text-emerald-600 hover:text-emerald-700 font-bold flex items-center gap-1"
                 >
-                  <option value="">Sin categoría</option>
-                  {categorias.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nombre}
-                    </option>
-                  ))}
-                </select>
+                  <Plus className="w-3 h-3" />
+                  <span>Nueva Categoría</span>
+                </button>
               )}
             </div>
-            <div>
-              <label className="block text-xs font-bold uppercase text-slate-600 mb-1">
-                Código / SKU (Opcional)
-              </label>
-              <input
-                type="text"
-                placeholder="BEB-001"
-                value={sku}
-                onChange={(e) => setSku(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
+
+            {isAddingCat ? (
+              <div className="flex items-center gap-2 mb-2 p-2 bg-emerald-50 rounded-xl border border-emerald-200">
+                <input
+                  type="text"
+                  placeholder="Nombre de la categoría..."
+                  value={newCatNombre}
+                  onChange={(e) => setNewCatNombre(e.target.value)}
+                  className="flex-1 px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveNewCat}
+                  className="px-3 py-1.5 text-xs bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 shadow-sm"
+                >
+                  Guardar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddingCat(false);
+                    setNewCatNombre('');
+                  }}
+                  className="px-2 py-1.5 text-xs text-slate-500 hover:text-slate-700"
+                >
+                  Cancelar
+                </button>
+              </div>
+            ) : null}
+
+            <select
+              value={categoriaId}
+              onChange={(e) => setCategoriaId(e.target.value)}
+              className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
+            >
+              <option value="">Sin Categoría</option>
+              {categorias.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nombre}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold uppercase text-slate-600 mb-1">
-                Precio de Venta ($ COP) *
+                Precio de Venta *
               </label>
               <input
                 type="number"
                 required
                 min="0"
-                placeholder="4500"
+                step="50"
                 value={precioVenta}
                 onChange={(e) => setPrecioVenta(e.target.value)}
-                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-base font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                placeholder="0"
+                className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
               />
             </div>
             <div>
               <label className="block text-xs font-bold uppercase text-slate-600 mb-1">
-                Costo Unitario ($ COP)
+                Costo (Compra)
               </label>
               <input
                 type="number"
                 min="0"
-                placeholder="3200"
+                step="50"
                 value={costo}
                 onChange={(e) => setCosto(e.target.value)}
-                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-base font-medium text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                placeholder="0"
+                className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
               />
             </div>
           </div>
@@ -229,14 +216,14 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold uppercase text-slate-600 mb-1">
-                Stock Inicial / Actual
+                Stock Inicial
               </label>
               <input
                 type="number"
                 min="0"
                 value={stockActual}
                 onChange={(e) => setStockActual(e.target.value)}
-                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
               />
             </div>
             <div>
@@ -245,12 +232,25 @@ export const ProductModal: React.FC<ProductModalProps> = ({
               </label>
               <input
                 type="number"
-                min="1"
+                min="0"
                 value={stockMinimo}
                 onChange={(e) => setStockMinimo(e.target.value)}
-                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold uppercase text-slate-600 mb-1">
+              Código de Barras / SKU (Opcional)
+            </label>
+            <input
+              type="text"
+              value={sku}
+              onChange={(e) => setSku(e.target.value)}
+              placeholder="Ej. 7701234567890"
+              className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
+            />
           </div>
 
           <div>
@@ -259,14 +259,14 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             </label>
             <input
               type="url"
-              placeholder="https://images.unsplash.com/..."
               value={imagenUrl}
               onChange={(e) => setImagenUrl(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              placeholder="https://..."
+              className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
             />
           </div>
 
-          <div className="pt-3 border-t border-slate-100 flex justify-end gap-2">
+          <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">
             <button
               type="button"
               onClick={onClose}
@@ -284,6 +284,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

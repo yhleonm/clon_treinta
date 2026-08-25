@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   CheckCircle2,
@@ -7,7 +8,6 @@ import {
   CreditCard,
   Building2,
   Clock,
-  UserPlus,
   AlertTriangle,
 } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
@@ -44,213 +44,239 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const recibidoNum = Number(montoRecibido) || 0;
   const cambioVueltas = Math.max(0, recibidoNum - total);
 
-  const billetesSugeridos = [2000, 5000, 10000, 20000, 50000, 100000].filter(
-    (b) => b >= total
-  );
+  const getMedioPagoIcon = (id: MedioPago) => {
+    switch (id) {
+      case 'efectivo':
+        return Banknote;
+      case 'nequi':
+      case 'daviplata':
+        return Smartphone;
+      case 'tarjeta':
+        return CreditCard;
+      case 'transferencia':
+        return Building2;
+      case 'credito':
+        return Clock;
+      default:
+        return Banknote;
+    }
+  };
 
   const handleConfirmarVenta = () => {
     setErrorMsg('');
 
     if (medioPago === 'credito' && !clienteId) {
-      setErrorMsg('Debes seleccionar un cliente para registrar una venta a crédito (fiado).');
+      setErrorMsg('Para ventas a crédito (Fiado) es obligatorio seleccionar un cliente');
       return;
     }
 
     if (medioPago === 'efectivo' && recibidoNum > 0 && recibidoNum < total) {
-      setErrorMsg('El dinero recibido en efectivo es menor al total de la venta.');
+      setErrorMsg('El efectivo recibido no cubre el total de la venta');
       return;
     }
 
     const res = registrarVenta({
       clienteId: clienteId || null,
-      medioPago,
+      medioPago: medioPago,
       descuento: Number(descuento) || 0,
-      notas: notas || undefined,
+      notas: notas.trim() || undefined,
     });
 
     if (res.success && res.venta) {
       onSuccess(res.venta.numero_folio);
+      onClose();
     } else {
-      setErrorMsg(res.error || 'Ocurrió un error al procesar la venta');
+      setErrorMsg(res.error || 'Error al procesar la venta');
     }
   };
 
-  const selectedCliente = clientes.find((c) => c.id === clienteId);
-
-  return (
-    <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-150">
+  return createPortal(
+    <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 select-none animate-in fade-in duration-150">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-150">
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
           <div>
-            <h3 className="font-bold text-lg text-slate-900">Cobrar Venta</h3>
-            <p className="text-xs text-slate-500">
-              {carrito.reduce((s, i) => s + i.cantidad, 0)} artículos en canasta
+            <h3 className="font-extrabold text-lg text-slate-900">Cobrar Venta</h3>
+            <p className="text-xs text-slate-500 font-medium">
+              Total a Pagar:{' '}
+              <span className="font-bold text-slate-900">
+                {formatCurrency(total)}
+              </span>
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200/60 transition"
+            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200/60 transition"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Total Banner */}
-        <div className="bg-emerald-600 text-white px-6 py-4 flex items-center justify-between">
-          <div>
-            <span className="text-xs text-emerald-100 uppercase tracking-wider font-semibold">Total a Pagar</span>
-            <div className="text-3xl font-extrabold tracking-tight">{formatCurrency(total)}</div>
-          </div>
-          {descuento > 0 && (
-            <div className="text-right">
-              <span className="text-xs text-emerald-200">Subtotal: {formatCurrency(subtotal)}</span>
-              <div className="text-sm font-semibold text-emerald-100">Descuento: -{formatCurrency(descuento)}</div>
-            </div>
-          )}
-        </div>
-
-        {/* Body Content */}
-        <div className="p-6 space-y-5 overflow-y-auto flex-1">
+        {/* Content */}
+        <div className="p-6 overflow-y-auto space-y-5 flex-1">
+          {/* Error Message */}
           {errorMsg && (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-semibold flex items-center gap-2">
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2 text-xs font-semibold text-rose-700">
               <AlertTriangle className="w-4 h-4 shrink-0" />
               <span>{errorMsg}</span>
             </div>
           )}
 
-          {/* Payment Method Selector */}
+          {/* Payment Method Selector Grid */}
           <div>
-            <label className="block text-xs font-bold uppercase text-slate-500 mb-2">Medio de Pago</label>
-            <div className="grid grid-cols-3 gap-2">
+            <label className="block text-xs font-bold uppercase text-slate-600 mb-2">
+              Medio de Pago
+            </label>
+            <div className="grid grid-cols-3 gap-2.5">
               {MEDIOS_DE_PAGO.map((m) => {
                 const isSelected = medioPago === m.id;
+                const Icon = getMedioPagoIcon(m.id);
+
                 return (
                   <button
                     key={m.id}
                     type="button"
-                    onClick={() => {
-                      setMedioPago(m.id);
-                      setErrorMsg('');
-                    }}
-                    className={`flex items-center gap-2 p-3 rounded-xl border text-xs font-bold transition-all text-left ${
+                    onClick={() => setMedioPago(m.id)}
+                    className={`flex flex-col items-center justify-center p-3 rounded-xl border text-center transition-all ${
                       isSelected
-                        ? 'border-emerald-500 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-500/20'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                        ? 'border-emerald-500 bg-emerald-50 text-emerald-900 font-bold ring-2 ring-emerald-500/20 shadow-sm'
+                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300 font-medium'
                     }`}
                   >
-                    {m.id === 'efectivo' && <Banknote className="w-4 h-4 text-emerald-600 shrink-0" />}
-                    {m.id === 'nequi' && <Smartphone className="w-4 h-4 text-purple-600 shrink-0" />}
-                    {m.id === 'daviplata' && <Smartphone className="w-4 h-4 text-red-600 shrink-0" />}
-                    {m.id === 'tarjeta' && <CreditCard className="w-4 h-4 text-indigo-600 shrink-0" />}
-                    {m.id === 'transferencia' && <Building2 className="w-4 h-4 text-blue-600 shrink-0" />}
-                    {m.id === 'credito' && <Clock className="w-4 h-4 text-amber-600 shrink-0" />}
-                    <span className="truncate">{m.label}</span>
+                    <Icon
+                      className={`w-5 h-5 mb-1.5 ${
+                        isSelected ? 'text-emerald-600' : 'text-slate-500'
+                      }`}
+                    />
+                    <span className="text-xs">{m.label}</span>
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* Specific payment options */}
+          {/* Cash Specific Calculations */}
           {medioPago === 'efectivo' && (
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-slate-700">Efectivo Recibido</label>
-                <button
-                  type="button"
-                  onClick={() => setMontoRecibido(total.toString())}
-                  className="text-xs text-emerald-600 font-bold hover:underline"
-                >
-                  Pago Exacto
-                </button>
-              </div>
-              <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-base">$</span>
+            <div className="p-4 bg-emerald-50/50 rounded-xl border border-emerald-200/70 space-y-3">
+              <label className="block text-xs font-bold uppercase text-emerald-900">
+                Efectivo Recibido
+              </label>
+              <div className="flex items-center gap-2">
                 <input
                   type="number"
                   placeholder={total.toString()}
                   value={montoRecibido}
                   onChange={(e) => setMontoRecibido(e.target.value)}
-                  className="w-full pl-8 pr-4 py-2.5 bg-white border border-slate-300 rounded-xl text-lg font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  className="flex-1 px-4 py-2.5 bg-white border border-emerald-300 rounded-xl text-base font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
+                <button
+                  type="button"
+                  onClick={() => setMontoRecibido(total.toString())}
+                  className="px-3 py-2.5 bg-emerald-600 text-white font-bold text-xs rounded-xl hover:bg-emerald-700 transition"
+                >
+                  Exacto
+                </button>
               </div>
 
-              {/* Quick denomination chips */}
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {billetesSugeridos.map((b) => (
+              {/* Quick Cash Buttons */}
+              <div className="flex gap-2 pt-1 overflow-x-auto">
+                {[10000, 20000, 50000, 100000].map((billete) => (
                   <button
-                    key={b}
+                    key={billete}
                     type="button"
-                    onClick={() => setMontoRecibido(b.toString())}
-                    className="px-2.5 py-1 bg-white border border-slate-200 hover:border-emerald-400 rounded-lg text-xs font-semibold text-slate-700 shadow-sm"
+                    onClick={() => setMontoRecibido(billete.toString())}
+                    className="px-2.5 py-1 bg-white border border-emerald-200 text-xs font-semibold text-emerald-800 rounded-lg hover:bg-emerald-100 transition shadow-sm shrink-0"
                   >
-                    {formatCurrency(b)}
+                    {formatCurrency(billete)}
                   </button>
                 ))}
               </div>
 
-              {/* Cambio / Vueltas */}
-              {recibidoNum >= total && recibidoNum > 0 && (
-                <div className="p-3 bg-emerald-100/80 border border-emerald-300 rounded-xl flex items-center justify-between">
-                  <span className="text-xs font-bold text-emerald-900 uppercase">Cambio / Vueltas a entregar:</span>
-                  <span className="text-xl font-extrabold text-emerald-700">{formatCurrency(cambioVueltas)}</span>
+              {/* Change calculation */}
+              {recibidoNum >= total && (
+                <div className="pt-2 border-t border-emerald-200 flex justify-between items-center text-sm font-bold">
+                  <span className="text-emerald-900">Cambio (Vueltas):</span>
+                  <span className="text-emerald-700 text-base font-extrabold">
+                    {formatCurrency(cambioVueltas)}
+                  </span>
                 </div>
               )}
             </div>
           )}
 
-          {/* Customer Selection (Optional or Mandatory for Fiado) */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-bold uppercase text-slate-500">
-                Cliente {medioPago === 'credito' && <span className="text-rose-500">* Requerido para fiado</span>}
+          {/* Fiado / Credit Specific: Customer Required */}
+          {medioPago === 'credito' && (
+            <div className="p-4 bg-amber-50 rounded-xl border border-amber-200 space-y-2">
+              <label className="block text-xs font-bold uppercase text-amber-900">
+                Seleccionar Cliente para Fiado (Obligatorio)
               </label>
+              <select
+                required
+                value={clienteId}
+                onChange={(e) => setClienteId(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-white border border-amber-300 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+              >
+                <option value="">Selecciona un cliente...</option>
+                {clientes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nombre} {c.telefono ? `(${c.telefono})` : ''} - Saldo: {formatCurrency(c.saldo_deuda)}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-amber-700 font-medium">
+                Esta venta se añadirá a la cuenta por cobrar del cliente seleccionado.
+              </p>
             </div>
-            <select
-              value={clienteId}
-              onChange={(e) => setClienteId(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            >
-              <option value="">Cliente general / Mostrador</option>
-              {clientes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nombre} {c.saldo_deuda > 0 ? `(Deuda actual: ${formatCurrency(c.saldo_deuda)})` : ''}
-                </option>
-              ))}
-            </select>
+          )}
 
-            {selectedCliente && medioPago === 'credito' && (
-              <div className="mt-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
-                Deuda actual: <strong>{formatCurrency(selectedCliente.saldo_deuda)}</strong>. Con esta venta quedará en:{' '}
-                <strong>{formatCurrency(selectedCliente.saldo_deuda + total)}</strong>.
-              </div>
-            )}
+          {/* Optional Customer Selection for normal payment */}
+          {medioPago !== 'credito' && (
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-600 mb-1">
+                Asociar Cliente (Opcional)
+              </label>
+              <select
+                value={clienteId}
+                onChange={(e) => setClienteId(e.target.value)}
+                className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value="">Venta de mostrador (Cliente genérico)</option>
+                {clientes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nombre} {c.telefono ? `(${c.telefono})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Discount Field */}
+          <div>
+            <label className="block text-xs font-bold uppercase text-slate-600 mb-1">
+              Descuento Global ($ COP)
+            </label>
+            <input
+              type="number"
+              min="0"
+              placeholder="0"
+              value={descuento || ''}
+              onChange={(e) => setDescuento(Number(e.target.value) || 0)}
+              className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
           </div>
 
-          {/* Discount & Notes */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Descuento ($)</label>
-              <input
-                type="number"
-                min="0"
-                value={descuento || ''}
-                onChange={(e) => setDescuento(Math.max(0, Number(e.target.value)))}
-                placeholder="0"
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Notas / Observación</label>
-              <input
-                type="text"
-                value={notas}
-                onChange={(e) => setNotas(e.target.value)}
-                placeholder="Ej. Domicilio..."
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
+          {/* Internal Notes */}
+          <div>
+            <label className="block text-xs font-bold uppercase text-slate-600 mb-1">
+              Notas de la venta
+            </label>
+            <input
+              type="text"
+              placeholder="Ej. Mesa 4, Domicilio..."
+              value={notas}
+              onChange={(e) => setNotas(e.target.value)}
+              className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
           </div>
         </div>
 
@@ -273,6 +299,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

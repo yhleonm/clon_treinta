@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   TrendingDown,
@@ -103,19 +104,14 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose }) =
     onClose();
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex justify-end select-none animate-in fade-in duration-150">
       {/* Slide-over Drawer Card */}
       <div className="bg-white w-full max-w-lg h-full overflow-y-auto shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200">
+        {/* Header */}
         <div>
-          {/* Header */}
-          <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
-                <TrendingDown className="w-4 h-4" />
-              </div>
-              <h3 className="font-extrabold text-lg text-slate-900">Nuevo gasto</h3>
-            </div>
+          <div className="p-6 pb-2 flex items-center justify-between border-b border-slate-100">
+            <h3 className="text-xl font-black text-slate-900">Nuevo gasto</h3>
             <button
               onClick={onClose}
               className="p-2 hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-full transition"
@@ -289,10 +285,9 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose }) =
 
             {/* Proveedor */}
             <div>
-              <div className="flex items-center gap-1 text-xs font-extrabold text-slate-700 mb-1.5">
-                <Crown className="w-3.5 h-3.5 text-sky-500 fill-sky-500" />
-                <span>Agrega un proveedor al gasto</span>
-              </div>
+              <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
+                ¿Quién te vendió esto?
+              </label>
               <select
                 value={proveedorId}
                 onChange={(e) => setProveedorId(e.target.value)}
@@ -307,20 +302,19 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose }) =
               </select>
             </div>
 
-            {/* Selecciona el método de pago */}
+            {/* Medio de pago */}
             {estadoPago === 'pagada' && (
               <div>
                 <label className="block text-xs font-extrabold text-slate-700 mb-2">
-                  Selecciona el método de pago *
+                  ¿Cómo pagaste?
                 </label>
                 <div className="grid grid-cols-2 gap-2.5">
-                  {/* Efectivo */}
                   <div
                     onClick={() => setMedioPago('efectivo')}
-                    className={`p-3.5 rounded-2xl border text-center cursor-pointer transition relative flex flex-col items-center justify-center gap-1.5 ${
+                    className={`p-3.5 rounded-2xl border flex flex-col items-center justify-center gap-1.5 cursor-pointer transition relative font-bold ${
                       medioPago === 'efectivo'
-                        ? 'border-emerald-600 bg-emerald-50/40 text-emerald-950 font-black'
-                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold'
+                        ? 'border-slate-900 bg-slate-50 text-slate-900'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                     }`}
                   >
                     {medioPago === 'efectivo' && (
@@ -332,13 +326,12 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose }) =
                     <span className="text-xs">Efectivo</span>
                   </div>
 
-                  {/* Tarjeta */}
                   <div
                     onClick={() => setMedioPago('tarjeta')}
-                    className={`p-3.5 rounded-2xl border text-center cursor-pointer transition relative flex flex-col items-center justify-center gap-1.5 ${
+                    className={`p-3.5 rounded-2xl border flex flex-col items-center justify-center gap-1.5 cursor-pointer transition relative font-bold ${
                       medioPago === 'tarjeta'
-                        ? 'border-emerald-600 bg-emerald-50/40 text-emerald-950 font-black'
-                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold'
+                        ? 'border-slate-900 bg-slate-50 text-slate-900'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                     }`}
                   >
                     {medioPago === 'tarjeta' && (
@@ -350,13 +343,12 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose }) =
                     <span className="text-xs">Tarjeta</span>
                   </div>
 
-                  {/* Transferencia */}
                   <div
                     onClick={() => setMedioPago('transferencia')}
-                    className={`p-3.5 rounded-2xl border text-center cursor-pointer transition relative flex flex-col items-center justify-center gap-1.5 ${
+                    className={`p-3.5 rounded-2xl border flex flex-col items-center justify-center gap-1.5 cursor-pointer transition relative font-bold ${
                       medioPago === 'transferencia'
-                        ? 'border-emerald-600 bg-emerald-50/40 text-emerald-950 font-black'
-                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold'
+                        ? 'border-slate-900 bg-slate-50 text-slate-900'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                     }`}
                   >
                     {medioPago === 'transferencia' && (
@@ -365,16 +357,15 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose }) =
                       </div>
                     )}
                     <Building2 className="w-5 h-5 text-slate-700" />
-                    <span className="text-xs">Transferencia bancaria</span>
+                    <span className="text-xs">Transferencia</span>
                   </div>
 
-                  {/* Nequi / Daviplata / Otro */}
                   <div
                     onClick={() => setMedioPago('nequi')}
-                    className={`p-3.5 rounded-2xl border text-center cursor-pointer transition relative flex flex-col items-center justify-center gap-1.5 ${
+                    className={`p-3.5 rounded-2xl border flex flex-col items-center justify-center gap-1.5 cursor-pointer transition relative font-bold ${
                       medioPago === 'nequi'
-                        ? 'border-emerald-600 bg-emerald-50/40 text-emerald-950 font-black'
-                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold'
+                        ? 'border-slate-900 bg-slate-50 text-slate-900'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                     }`}
                   >
                     {medioPago === 'nequi' && (
@@ -410,6 +401,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose }) =
         initialItems={supplyItems}
         onConfirm={handleSuppliesConfirmed}
       />
-    </div>
+    </div>,
+    document.body
   );
 };

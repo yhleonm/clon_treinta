@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ArrowLeft,
   Search,
@@ -133,8 +134,8 @@ export const SelectSuppliesModal: React.FC<SelectSuppliesModalProps> = ({
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 z-[60] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 select-none animate-in fade-in duration-150">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 select-none animate-in fade-in duration-150">
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-6xl h-[90vh] overflow-hidden flex flex-col sm:flex-row border border-slate-200 animate-in zoom-in-95 duration-150">
         {/* LEFT PRODUCT SELECTION AREA */}
         <div className="flex-1 flex flex-col h-full overflow-hidden border-r border-slate-200">
@@ -397,6 +398,7 @@ export const SelectSuppliesModal: React.FC<SelectSuppliesModalProps> = ({
         isOpen={isProductModalOpen}
         onClose={() => setIsProductModalOpen(false)}
       />
-    </div>
+    </div>,
+    document.body
   );
 };
