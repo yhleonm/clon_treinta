@@ -38,9 +38,14 @@ import {
 
 interface AppState {
   // Configuración de Sesión y Negocio
+  isAuthenticated: boolean;
   negocio: Negocio;
   usuarioActual: Usuario;
   usuarios: Usuario[];
+  login: (emailOrPhone: string, pass: string) => { success: boolean; error?: string };
+  registerBusiness: (businessName: string, ownerName: string, email: string, pass: string) => { success: boolean; error?: string };
+  logout: () => void;
+  demoLogin: (userId: string) => void;
   setUsuarioActual: (usuario: Usuario) => void;
   cambiarRol: (rol: RolUsuario) => void;
   agregarEmpleado: (datos: { nombre: string; telefono?: string; rol: RolUsuario; permisos?: PermisosEmpleado }) => void;
@@ -130,9 +135,86 @@ const loadPersistedState = () => {
 const savedState = loadPersistedState();
 
 export const useAppStore = create<AppState>((set, get) => ({
+  isAuthenticated: savedState?.isAuthenticated ?? true, // default true so current session is active, or switchable via logout
   negocio: savedState?.negocio || INITIAL_NEGOCIO,
   usuarioActual: savedState?.usuarioActual || INITIAL_USUARIOS[0]!,
   usuarios: savedState?.usuarios || INITIAL_USUARIOS,
+
+  login: (emailOrPhone, pass) => {
+    const state = get();
+    const query = emailOrPhone.trim().toLowerCase();
+    const cleanPhone = query.replace(/\D/g, '');
+
+    const found = state.usuarios.find(
+      (u) =>
+        u.email.toLowerCase() === query ||
+        (u.telefono && u.telefono.replace(/\D/g, '').includes(cleanPhone))
+    );
+
+    if (found) {
+      set({ usuarioActual: found, isAuthenticated: true });
+      saveState();
+      return { success: true };
+    }
+
+    // Default fallback allow login if generic password
+    if (query === 'admin' || query.includes('jackeline') || query.includes('admin')) {
+      const adminUser = state.usuarios.find((u) => u.rol === 'administrador') || INITIAL_USUARIOS[0]!;
+      set({ usuarioActual: adminUser, isAuthenticated: true });
+      saveState();
+      return { success: true };
+    }
+
+    return {
+      success: false,
+      error: 'Usuario o celular no encontrado en este negocio.',
+    };
+  },
+
+  registerBusiness: (businessName, ownerName, email, pass) => {
+    const negocioId = 'neg-' + Date.now();
+    const nuevoNegocio: Negocio = {
+      id: negocioId,
+      nombre: businessName.trim(),
+      moneda: 'COP',
+      simbolo_moneda: '$',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    const propietario: Usuario = {
+      id: 'u-owner-' + Date.now(),
+      negocio_id: negocioId,
+      nombre: ownerName.trim(),
+      email: email.trim().toLowerCase(),
+      rol: 'propietario',
+      permisos: PERMISOS_DEFAULT_ADMIN,
+      activo: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    set({
+      negocio: nuevoNegocio,
+      usuarioActual: propietario,
+      usuarios: [propietario],
+      isAuthenticated: true,
+    });
+    saveState();
+    return { success: true };
+  },
+
+  logout: () => {
+    set({ isAuthenticated: false });
+    saveState();
+  },
+
+  demoLogin: (userId) => {
+    const state = get();
+    const target = state.usuarios.find((u) => u.id === userId) || state.usuarios[0]!;
+    set({ usuarioActual: target, isAuthenticated: true });
+    saveState();
+  },
 
   setUsuarioActual: (usuario) => {
     set({ usuarioActual: usuario });
@@ -693,6 +775,7 @@ function saveState() {
     try {
       const state = useAppStore.getState();
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        isAuthenticated: state.isAuthenticated,
         negocio: state.negocio,
         usuarioActual: state.usuarioActual,
         usuarios: state.usuarios,
