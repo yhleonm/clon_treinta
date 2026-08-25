@@ -50,7 +50,7 @@ interface AppState {
   loadDemoBusiness: () => void;
   setUsuarioActual: (usuario: Usuario) => void;
   cambiarRol: (rol: RolUsuario) => void;
-  agregarEmpleado: (datos: { nombre: string; telefono?: string; rol: RolUsuario; permisos?: PermisosEmpleado }) => void;
+  agregarEmpleado: (datos: { nombre: string; telefono?: string; password?: string; rol: RolUsuario; permisos?: PermisosEmpleado }) => void;
   editarEmpleado: (id: string, datos: Partial<Usuario>) => void;
   eliminarEmpleado: (id: string) => void;
 
@@ -325,15 +325,18 @@ export const useAppStore = create<AppState>((set, get) => ({
     saveState();
   },
 
-  agregarEmpleado: ({ nombre, telefono, rol, permisos }) => {
+  agregarEmpleado: ({ nombre, telefono, password, rol, permisos }) => {
     const state = get();
     const defaultPerms = rol === 'administrador' ? PERMISOS_DEFAULT_ADMIN : PERMISOS_DEFAULT_VENDEDOR;
+    const cleanNombre = nombre.trim().toLowerCase().replace(/\s+/g, '');
+    const cleanNegocio = state.negocio.nombre.trim().toLowerCase().replace(/\s+/g, '');
     const nuevo: Usuario = {
       id: 'u-' + Date.now(),
       negocio_id: state.negocio.id,
       nombre: nombre.trim(),
-      email: `${nombre.toLowerCase().replace(/\s+/g, '')}@negocio.com`,
+      email: `${cleanNombre}@${cleanNegocio || 'negocio'}.com`,
       telefono: telefono || null,
+      password: password ? password.trim() : '1234',
       rol,
       permisos: permisos || defaultPerms,
       activo: true,

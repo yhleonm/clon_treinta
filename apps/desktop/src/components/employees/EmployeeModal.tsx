@@ -25,6 +25,7 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
 
   const [nombre, setNombre] = useState('');
   const [telefono, setTelefono] = useState('');
+  const [password, setPassword] = useState('1234');
   const [rol, setRol] = useState<RolUsuario>('vendedor');
   const [permisos, setPermisos] = useState<PermisosEmpleado>(PERMISOS_DEFAULT_VENDEDOR);
   const [isPermissionsOpen, setIsPermissionsOpen] = useState(false);
@@ -35,6 +36,7 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
       setTelefono(
         employeeToEdit.telefono ? employeeToEdit.telefono.replace('+57', '') : ''
       );
+      setPassword(employeeToEdit.password || '1234');
       setRol(employeeToEdit.rol);
       setPermisos(
         employeeToEdit.permisos ||
@@ -45,6 +47,7 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
     } else {
       setNombre('');
       setTelefono('');
+      setPassword('1234');
       setRol('vendedor');
       setPermisos(PERMISOS_DEFAULT_VENDEDOR);
     }
@@ -73,6 +76,7 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
       editarEmpleado(employeeToEdit.id, {
         nombre: nombre.trim(),
         telefono: fullTelefono,
+        password: password.trim() || '1234',
         rol,
         permisos,
       });
@@ -80,6 +84,7 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
       agregarEmpleado({
         nombre: nombre.trim(),
         telefono: fullTelefono,
+        password: password.trim() || '1234',
         rol,
         permisos,
       });
@@ -121,7 +126,7 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
             <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
               Nombre *
@@ -153,6 +158,23 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
                 className="w-full px-3.5 py-3 text-sm font-semibold text-slate-900 focus:outline-none"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
+              PIN / Contraseña de acceso *
+            </label>
+            <input
+              type="text"
+              required
+              placeholder="Ej. 1234"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-3 bg-white border border-slate-300 rounded-2xl text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+            <p className="text-[11px] text-slate-400 mt-1">
+              El PIN que usará el empleado para ingresar a la app (por defecto 1234).
+            </p>
           </div>
 
           <div>
