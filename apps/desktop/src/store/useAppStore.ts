@@ -130,7 +130,27 @@ const loadPersistedState = () => {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-      return JSON.parse(saved);
+      const parsed = JSON.parse(saved);
+      // Clean up / sanitize legacy state:
+      // If business is NOT demo business, purge any mock users (Jackeline/Manolo) that might have been accidentally saved into it
+      if (parsed.negocio && parsed.usuarios) {
+        if (parsed.negocio.id !== INITIAL_NEGOCIO.id) {
+          parsed.usuarios = parsed.usuarios.filter(
+            (u: any) =>
+              u.id !== 'u-jackeline' &&
+              u.id !== 'u-manolo' &&
+              (u.negocio_id === parsed.negocio.id || !u.negocio_id)
+          );
+          if (
+            parsed.usuarioActual &&
+            (parsed.usuarioActual.id === 'u-jackeline' || parsed.usuarioActual.id === 'u-manolo')
+          ) {
+            parsed.usuarioActual = parsed.usuarios[0] || null;
+            parsed.isAuthenticated = false;
+          }
+        }
+      }
+      return parsed;
     }
   } catch (e) {
     console.error('Error loading persisted state:', e);
@@ -151,7 +171,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     const query = emailOrPhone.trim().toLowerCase();
     const cleanPhone = query.replace(/\D/g, '');
 
-    const found = state.usuarios.find(
+    // Only search in valid users of the active business
+    const validUsers = state.usuarios.filter(
+      (u) =>
+        state.negocio.id === INITIAL_NEGOCIO.id ||
+        (u.id !== 'u-jackeline' && u.id !== 'u-manolo')
+    );
+
+    const found = validUsers.find(
       (u) =>
         u.email.toLowerCase() === query ||
         (u.telefono && u.telefono.replace(/\D/g, '').includes(cleanPhone))
@@ -160,13 +187,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!found) {
       return {
         success: false,
-        error: 'Usuario o celular no encontrado en este negocio.',
+        error: `Usuario no encontrado en el negocio "${state.negocio.nombre}".`,
       };
     }
 
     // Verificar contraseña: demo users aceptan PIN '1234', registered users usan su password
-    const storedPass = (found as any).password || '1234'; // default demo PIN
-    if (pass !== storedPass) {
+    const storedPass = (found as any).password || '1234';
+    if (pass.trim() !== storedPass) {
       return {
         success: false,
         error: 'Contraseña o PIN incorrectos.',
