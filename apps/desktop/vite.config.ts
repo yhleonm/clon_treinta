@@ -11,6 +11,9 @@ export default defineConfig({
       '@treinta/shared': path.resolve(__dirname, '../../packages/shared/src'),
     },
   },
+  build: {
+    chunkSizeWarningLimit: 2500,
+  },
   server: {
     port: 3000,
     open: false,
