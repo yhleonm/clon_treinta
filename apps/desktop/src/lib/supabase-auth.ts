@@ -30,6 +30,7 @@ export async function signUpNewBusiness(
 
     // 2. Bootstrap negocio + usuario via SECURITY DEFINER RPC (bypasses RLS)
     const { data: bootstrapData, error: bootstrapError } = await supabase.rpc('bootstrap_negocio', {
+      p_user_id: userId,
       p_nombre: businessName,
       p_owner_name: ownerName,
       p_email: email,

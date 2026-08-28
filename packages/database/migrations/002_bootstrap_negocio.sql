@@ -1,10 +1,10 @@
 -- ==============================================================================
 -- BOOTSTRAP: Función para registrar un negocio nuevo (bypasses RLS)
--- Se necesita porque las políticas RLS impiden insertar en negocios/usuarios
--- cuando el usuario aún no tiene un registro en la tabla usuarios.
+-- Acepta p_user_id explícito para funcionar de inmediato tras supabase.auth.signUp()
 -- ==============================================================================
 
 CREATE OR REPLACE FUNCTION public.bootstrap_negocio(
+    p_user_id UUID,
     p_nombre TEXT,
     p_owner_name TEXT,
     p_email TEXT
@@ -14,9 +14,9 @@ DECLARE
     v_negocio_id UUID;
     v_user_id UUID;
 BEGIN
-    v_user_id := auth.uid();
+    v_user_id := COALESCE(auth.uid(), p_user_id);
     IF v_user_id IS NULL THEN
-        RAISE EXCEPTION 'Not authenticated';
+        RAISE EXCEPTION 'User ID required';
     END IF;
 
     -- Verificar que el usuario no tenga ya un negocio
