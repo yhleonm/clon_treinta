@@ -13,11 +13,15 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
+import { signUpNewBusiness, signInWithEmail, fetchUsuarioProfile } from '../lib/supabase-auth';
+import { isSupabaseConfigured } from '../lib/supabase';
+import { loadBusinessData } from '../lib/supabase-db';
 
 export const AuthPage: React.FC = () => {
   const { login, registerBusiness, loadDemoBusiness } = useAppStore();
 
   const [tab, setTab] = useState<'login' | 'register'>('login');
+  const [isLoading, setIsLoading] = useState(false);
 
   // Login form state
   const [loginIdentifier, setLoginIdentifier] = useState('');
@@ -31,7 +35,7 @@ export const AuthPage: React.FC = () => {
   const [registerPassword, setRegisterPassword] = useState('');
   const [registerError, setRegisterError] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
 
@@ -45,13 +49,58 @@ export const AuthPage: React.FC = () => {
       return;
     }
 
-    const res = login(loginIdentifier, loginPassword);
-    if (!res.success) {
-      setLoginError(res.error || 'Credenciales o PIN incorrectos');
+    setIsLoading(true);
+
+    try {
+      if (isSupabaseConfigured) {
+        const signInResult = await signInWithEmail(loginIdentifier, loginPassword);
+        if (!signInResult.success || !signInResult.userId) {
+          throw new Error(signInResult.error || 'Error al iniciar sesión');
+        }
+
+        const profileResult = await fetchUsuarioProfile(signInResult.userId);
+        if (!profileResult.success || !profileResult.data) {
+          throw new Error(profileResult.error || 'Perfil de usuario no encontrado');
+        }
+
+        useAppStore.setState({
+          isAuthenticated: true,
+          negocio: profileResult.data.negocio,
+          usuarioActual: profileResult.data.usuario,
+          usuarios: [profileResult.data.usuario]
+        });
+
+        const businessData = await loadBusinessData(profileResult.data.negocio.id);
+        
+        if (businessData) {
+          useAppStore.setState({
+            categorias: businessData.categorias,
+            productos: businessData.productos,
+            clientes: businessData.clientes,
+            proveedores: businessData.proveedores,
+            ventas: businessData.ventas.map((v: any) => ({ ...v, items: v.venta_items || [] })),
+            gastos: businessData.gastos,
+            cuentasPorCobrar: businessData.cuentasPorCobrar,
+            cuentasPorPagar: businessData.cuentasPorPagar,
+            cajaSesion: businessData.cajaSesiones.find((c: any) => c.estado === 'abierta') || null,
+            historialCajas: businessData.cajaSesiones,
+            movimientosInventario: businessData.movimientosInventario
+          });
+        }
+      } else {
+        const res = login(loginIdentifier, loginPassword);
+        if (!res.success) {
+          setLoginError(res.error || 'Credenciales o PIN incorrectos');
+        }
+      }
+    } catch (err: any) {
+      setLoginError(err.message || 'Error al iniciar sesión');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setRegisterError('');
 
@@ -60,15 +109,71 @@ export const AuthPage: React.FC = () => {
       return;
     }
 
-    const res = registerBusiness(
-      businessName,
-      ownerName,
-      registerEmail,
-      registerPassword
-    );
+    setIsLoading(true);
 
-    if (!res.success) {
-      setRegisterError(res.error || 'Error al registrar negocio');
+    try {
+      if (isSupabaseConfigured) {
+        const signUpResult = await signUpNewBusiness(
+          businessName,
+          ownerName,
+          registerEmail,
+          registerPassword
+        );
+
+        if (!signUpResult.success) {
+          throw new Error(signUpResult.error || 'Error al registrar el negocio');
+        }
+
+        const signInResult = await signInWithEmail(registerEmail, registerPassword);
+        if (!signInResult.success || !signInResult.userId) {
+          throw new Error(signInResult.error || 'Error al iniciar sesión después de registrarse');
+        }
+
+        const profileResult = await fetchUsuarioProfile(signInResult.userId);
+        if (!profileResult.success || !profileResult.data) {
+          throw new Error(profileResult.error || 'Perfil de usuario no encontrado');
+        }
+
+        useAppStore.setState({
+          isAuthenticated: true,
+          negocio: profileResult.data.negocio,
+          usuarioActual: profileResult.data.usuario,
+          usuarios: [profileResult.data.usuario]
+        });
+
+        const businessData = await loadBusinessData(profileResult.data.negocio.id);
+        
+        if (businessData) {
+          useAppStore.setState({
+            categorias: businessData.categorias,
+            productos: businessData.productos,
+            clientes: businessData.clientes,
+            proveedores: businessData.proveedores,
+            ventas: businessData.ventas.map((v: any) => ({ ...v, items: v.venta_items || [] })),
+            gastos: businessData.gastos,
+            cuentasPorCobrar: businessData.cuentasPorCobrar,
+            cuentasPorPagar: businessData.cuentasPorPagar,
+            cajaSesion: businessData.cajaSesiones.find((c: any) => c.estado === 'abierta') || null,
+            historialCajas: businessData.cajaSesiones,
+            movimientosInventario: businessData.movimientosInventario
+          });
+        }
+      } else {
+        const res = registerBusiness(
+          businessName,
+          ownerName,
+          registerEmail,
+          registerPassword
+        );
+
+        if (!res.success) {
+          setRegisterError(res.error || 'Error al registrar negocio');
+        }
+      }
+    } catch (err: any) {
+      setRegisterError(err.message || 'Error al registrar negocio');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -136,8 +241,9 @@ export const AuthPage: React.FC = () => {
             <div className="bg-slate-800/80 p-1 rounded-2xl flex items-center">
               <button
                 type="button"
+                disabled={isLoading}
                 onClick={() => { setTab('login'); setLoginError(''); }}
-                className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all disabled:opacity-50 ${
                   tab === 'login'
                     ? 'bg-emerald-500 text-slate-950 shadow-md font-black'
                     : 'text-slate-400 hover:text-white'
@@ -147,8 +253,9 @@ export const AuthPage: React.FC = () => {
               </button>
               <button
                 type="button"
+                disabled={isLoading}
                 onClick={() => { setTab('register'); setRegisterError(''); }}
-                className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all disabled:opacity-50 ${
                   tab === 'register'
                     ? 'bg-emerald-500 text-slate-950 shadow-md font-black'
                     : 'text-slate-400 hover:text-white'
@@ -187,7 +294,8 @@ export const AuthPage: React.FC = () => {
                       placeholder="ej. usuario@correo.com o 3123822341"
                       value={loginIdentifier}
                       onChange={(e) => setLoginIdentifier(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-2xl text-sm font-semibold text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                      disabled={isLoading}
+                      className="w-full pl-10 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-2xl text-sm font-semibold text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent disabled:opacity-50"
                     />
                   </div>
                 </div>
@@ -204,35 +312,39 @@ export const AuthPage: React.FC = () => {
                       placeholder="••••••••"
                       value={loginPassword}
                       onChange={(e) => setLoginPassword(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-2xl text-sm font-semibold text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                      disabled={isLoading}
+                      className="w-full pl-10 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-2xl text-sm font-semibold text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent disabled:opacity-50"
                     />
                   </div>
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full py-3.5 px-4 bg-emerald-500 hover:bg-emerald-400 active:scale-98 text-slate-950 rounded-2xl font-black text-sm shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2"
+                  disabled={isLoading}
+                  className="w-full py-3.5 px-4 bg-emerald-500 hover:bg-emerald-400 active:scale-98 text-slate-950 rounded-2xl font-black text-sm shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
                 >
-                  <span>Iniciar Sesión</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <span>{isLoading ? 'Cargando...' : 'Iniciar Sesión'}</span>
+                  {!isLoading && <ArrowRight className="w-4 h-4" />}
                 </button>
 
                 <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
                   <button
                     type="button"
+                    disabled={isLoading}
                     onClick={() => {
                       loadDemoBusiness();
                       setLoginIdentifier('jackeline@eltriunfo.com');
                       setLoginPassword('1234');
                     }}
-                    className="text-slate-400 hover:text-emerald-400 text-[11px] font-bold transition flex items-center gap-1"
+                    className="text-slate-400 hover:text-emerald-400 text-[11px] font-bold transition flex items-center gap-1 disabled:opacity-50"
                   >
                     <span>🔄 Cargar Demo (El Triunfo)</span>
                   </button>
                   <button
                     type="button"
+                    disabled={isLoading}
                     onClick={() => setTab('register')}
-                    className="text-emerald-400 hover:text-emerald-300 text-[11px] font-bold"
+                    className="text-emerald-400 hover:text-emerald-300 text-[11px] font-bold disabled:opacity-50"
                   >
                     ¿No tienes cuenta? Regístrate
                   </button>
@@ -269,7 +381,8 @@ export const AuthPage: React.FC = () => {
                       placeholder="Ej. Minimarket Don Pedro"
                       value={businessName}
                       onChange={(e) => setBusinessName(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-2xl text-sm font-semibold text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      disabled={isLoading}
+                      className="w-full pl-10 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-2xl text-sm font-semibold text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
                     />
                   </div>
                 </div>
@@ -286,7 +399,8 @@ export const AuthPage: React.FC = () => {
                       placeholder="Ej. Pedro Gómez"
                       value={ownerName}
                       onChange={(e) => setOwnerName(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-2xl text-sm font-semibold text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      disabled={isLoading}
+                      className="w-full pl-10 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-2xl text-sm font-semibold text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
                     />
                   </div>
                 </div>
@@ -303,7 +417,8 @@ export const AuthPage: React.FC = () => {
                       placeholder="pedro@minimarket.com"
                       value={registerEmail}
                       onChange={(e) => setRegisterEmail(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-2xl text-sm font-semibold text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      disabled={isLoading}
+                      className="w-full pl-10 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-2xl text-sm font-semibold text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
                     />
                   </div>
                 </div>
@@ -320,17 +435,19 @@ export const AuthPage: React.FC = () => {
                       placeholder="Mínimo 4 caracteres (ej. 1234)"
                       value={registerPassword}
                       onChange={(e) => setRegisterPassword(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-2xl text-sm font-semibold text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      disabled={isLoading}
+                      className="w-full pl-10 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-2xl text-sm font-semibold text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
                     />
                   </div>
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full py-3.5 px-4 bg-emerald-500 hover:bg-emerald-400 active:scale-98 text-slate-950 rounded-2xl font-black text-sm shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2"
+                  disabled={isLoading}
+                  className="w-full py-3.5 px-4 bg-emerald-500 hover:bg-emerald-400 active:scale-98 text-slate-950 rounded-2xl font-black text-sm shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
                 >
-                  <span>Crear mi Negocio Gratis</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <span>{isLoading ? 'Cargando...' : 'Crear mi Negocio Gratis'}</span>
+                  {!isLoading && <ArrowRight className="w-4 h-4" />}
                 </button>
               </form>
             )}

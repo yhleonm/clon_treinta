@@ -36,6 +36,8 @@ import {
   INITIAL_CXC,
   INITIAL_CXP,
 } from '../lib/mock-data';
+import { isSupabaseConfigured } from '../lib/supabase';
+import * as db from '../lib/supabase-db';
 
 interface AppState {
   // Configuración de Sesión y Negocio
@@ -340,6 +342,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       },
     }));
     saveState();
+    syncToSupabase(() => db.updateNegocio(get().negocio.id, datos));
   },
 
   actualizarPerfilUsuario: (datos) => {
@@ -418,6 +421,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     };
     set((s) => ({ categorias: [...s.categorias, nueva] }));
     saveState();
+    syncToSupabase(() => db.insertCategoria({
+      nombre: nombre.trim(),
+      negocio_id: get().negocio.id,
+      color_hex: colorHex,
+      icono: 'tag',
+      activo: true,
+    }));
     return nueva;
   },
 
@@ -426,6 +436,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       categorias: s.categorias.filter((c) => c.id !== id),
     }));
     saveState();
+    syncToSupabase(() => db.deleteCategoria(id));
   },
 
   productos: savedState?.productos || INITIAL_PRODUCTOS,
@@ -442,6 +453,19 @@ export const useAppStore = create<AppState>((set, get) => ({
     };
     set((s) => ({ productos: [nuevo, ...s.productos] }));
     saveState();
+    syncToSupabase(() => db.insertProducto({
+      nombre: prodData.nombre,
+      negocio_id: state.negocio.id,
+      categoria_id: prodData.categoria_id || null,
+      descripcion: prodData.descripcion || null,
+      sku: prodData.sku || null,
+      precio_venta: prodData.precio_venta,
+      costo: prodData.costo,
+      stock_actual: prodData.stock_actual,
+      stock_minimo: prodData.stock_minimo,
+      imagen_url: prodData.imagen_url || null,
+      activo: true,
+    }));
   },
 
   editarProducto: (id, datos) => {
@@ -451,6 +475,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       ),
     }));
     saveState();
+    syncToSupabase(() => db.updateProducto(id, { ...datos, updated_at: new Date().toISOString() }));
   },
 
   eliminarProducto: (id) => {
@@ -458,6 +483,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       productos: s.productos.filter((p) => p.id !== id),
     }));
     saveState();
+    syncToSupabase(() => db.deleteProducto(id));
   },
 
   movimientosInventario: savedState?.movimientosInventario || [],
@@ -492,6 +518,23 @@ export const useAppStore = create<AppState>((set, get) => ({
       };
     });
     saveState();
+    syncToSupabase(async () => {
+      const s = get();
+      const prod = s.productos.find(p => p.id === productoId);
+      if (prod) {
+        await db.adjustStock(productoId, prod.stock_actual);
+        await db.insertMovimientoInventario({
+          negocio_id: s.negocio.id,
+          producto_id: productoId,
+          usuario_id: s.usuarioActual.id,
+          tipo: cantidad >= 0 ? 'ajuste_manual' : 'merma',
+          cantidad: Math.abs(cantidad),
+          stock_anterior: prod.stock_actual - cantidad,
+          stock_nuevo: prod.stock_actual,
+          motivo: motivo || 'Ajuste manual de inventario',
+        });
+      }
+    });
   },
 
   // CARRITO
@@ -743,6 +786,18 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
 
     saveState();
+    syncToSupabase(() => db.insertGasto({
+      negocio_id: state.negocio.id,
+      usuario_id: state.usuarioActual.id,
+      proveedor_id: proveedorId || null,
+      sesion_caja_id: state.cajaSesion?.id || null,
+      categoria,
+      concepto,
+      valor,
+      medio_pago: medioPago,
+      es_credito: esCredito,
+      fecha: fecha || new Date().toISOString(),
+    }));
   },
 
   // CUENTAS POR COBRAR (ABONOS)
@@ -800,6 +855,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
 
     saveState();
+    syncToSupabase(() => db.insertAbonoCxC({
+      negocio_id: state.negocio.id,
+      cuenta_id: cuentaId,
+      cliente_id: cxc.cliente_id,
+      usuario_id: state.usuarioActual.id,
+      sesion_caja_id: state.cajaSesion?.id || null,
+      monto,
+      medio_pago: medioPago,
+      notas,
+    }));
   },
 
   // CUENTAS POR PAGAR (ABONOS)
@@ -857,6 +922,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
 
     saveState();
+    syncToSupabase(() => db.insertAbonoCxP({
+      negocio_id: state.negocio.id,
+      cuenta_id: cuentaId,
+      proveedor_id: cxp.proveedor_id,
+      usuario_id: state.usuarioActual.id,
+      sesion_caja_id: state.cajaSesion?.id || null,
+      monto,
+      medio_pago: medioPago,
+      notas,
+    }));
   },
 
   // CLIENTES Y PROVEEDORES
@@ -874,6 +949,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     };
     set((s) => ({ clientes: [nuevo, ...s.clientes] }));
     saveState();
+    syncToSupabase(() => db.insertCliente({ ...data, negocio_id: get().negocio.id, saldo_deuda: 0, activo: true }));
   },
 
   agregarProveedor: (data) => {
@@ -887,6 +963,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     };
     set((s) => ({ proveedores: [nuevo, ...s.proveedores] }));
     saveState();
+    syncToSupabase(() => db.insertProveedor({ ...data, negocio_id: get().negocio.id, saldo_deuda: 0, activo: true }));
   },
 
   // CAJA SESIONES
@@ -916,6 +993,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     };
     set({ cajaSesion: nuevaCaja });
     saveState();
+    syncToSupabase(() => db.insertCajaSesion({
+      negocio_id: state.negocio.id,
+      usuario_id: state.usuarioActual.id,
+      monto_inicial: montoInicial,
+      total_ventas_efectivo: 0,
+      total_gastos_efectivo: 0,
+      total_abonos_efectivo: 0,
+      monto_esperado: montoInicial,
+      estado: 'abierta',
+      notas,
+    }));
   },
 
   historialCajas: savedState?.historialCajas || [],
@@ -938,6 +1026,18 @@ export const useAppStore = create<AppState>((set, get) => ({
       };
     });
     saveState();
+    syncToSupabase(async () => {
+      const state = get();
+      if (state.cajaSesion) {
+        await db.updateCajaSesion(state.cajaSesion.id, {
+          fecha_cierre: state.cajaSesion.fecha_cierre,
+          monto_real: state.cajaSesion.monto_real,
+          diferencia: state.cajaSesion.diferencia,
+          estado: 'cerrada',
+          notas: state.cajaSesion.notas,
+        });
+      }
+    });
   },
 
   // BALANCE
@@ -977,4 +1077,11 @@ function saveState() {
       console.error('Error saving state:', e);
     }
   }, 50);
+}
+
+// Background sync helper — fire-and-forget, does NOT block UI
+function syncToSupabase(operation: () => Promise<any>) {
+  if (isSupabaseConfigured) {
+    operation().catch((err) => console.error('[Supabase Sync]', err));
+  }
 }
