@@ -125,6 +125,9 @@ interface AppState {
   // Filtro de Balance
   periodoBalance: 'hoy' | 'semana' | 'mes' | 'todo';
   setPeriodoBalance: (periodo: 'hoy' | 'semana' | 'mes' | 'todo') => void;
+
+  // Persistencia manual (para uso externo después de setState directo)
+  saveStateImmediate: () => void;
 }
 
 const STORAGE_KEY = 'treinta_app_state_v1';
@@ -214,7 +217,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   registerBusiness: (businessName, ownerName, email, pass) => {
-    const negocioId = 'neg-' + Date.now();
+    const negocioId = crypto.randomUUID();
     const nuevoNegocio: Negocio = {
       id: negocioId,
       nombre: businessName.trim(),
@@ -225,7 +228,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     };
 
     const propietario: Usuario = {
-      id: 'u-owner-' + Date.now(),
+      id: crypto.randomUUID(),
       negocio_id: negocioId,
       nombre: ownerName.trim(),
       email: email.trim().toLowerCase(),
@@ -268,12 +271,19 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   loadDemoBusiness: () => {
+    const state = get();
+    // Preserve user-created products that don't exist in demo data
+    const demoProductIds = new Set(INITIAL_PRODUCTOS.map((p) => p.id));
+    const userProducts = state.productos.filter((p) => !demoProductIds.has(p.id));
+    const demoCatIds = new Set(INITIAL_CATEGORIAS.map((c) => c.id));
+    const userCategories = state.categorias.filter((c) => !demoCatIds.has(c.id));
+
     set({
       negocio: INITIAL_NEGOCIO,
       usuarioActual: INITIAL_USUARIOS[0]!,
       usuarios: INITIAL_USUARIOS,
-      categorias: INITIAL_CATEGORIAS,
-      productos: INITIAL_PRODUCTOS,
+      categorias: [...INITIAL_CATEGORIAS, ...userCategories],
+      productos: [...INITIAL_PRODUCTOS, ...userProducts],
       ventas: INITIAL_VENTAS,
       gastos: INITIAL_GASTOS,
       cuentasPorCobrar: INITIAL_CXC,
@@ -294,13 +304,18 @@ export const useAppStore = create<AppState>((set, get) => ({
     const targetUser = INITIAL_USUARIOS.find((u) => u.id === userId) || INITIAL_USUARIOS[0]!;
 
     if (!isDemoBusiness) {
-      // Switch workspace to Demo Store
+      // Switch workspace to Demo Store — preserve user-created products
+      const demoProductIds = new Set(INITIAL_PRODUCTOS.map((p) => p.id));
+      const userProducts = state.productos.filter((p) => !demoProductIds.has(p.id));
+      const demoCatIds = new Set(INITIAL_CATEGORIAS.map((c) => c.id));
+      const userCategories = state.categorias.filter((c) => !demoCatIds.has(c.id));
+
       set({
         negocio: INITIAL_NEGOCIO,
         usuarioActual: targetUser,
         usuarios: INITIAL_USUARIOS,
-        categorias: INITIAL_CATEGORIAS,
-        productos: INITIAL_PRODUCTOS,
+        categorias: [...INITIAL_CATEGORIAS, ...userCategories],
+        productos: [...INITIAL_PRODUCTOS, ...userProducts],
         ventas: INITIAL_VENTAS,
         gastos: INITIAL_GASTOS,
         cuentasPorCobrar: INITIAL_CXC,
@@ -445,7 +460,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const state = get();
     const nuevo: Producto = {
       ...prodData,
-      id: 'p-' + Date.now(),
+      id: crypto.randomUUID(),
       negocio_id: state.negocio.id,
       activo: true,
       created_at: new Date().toISOString(),
@@ -624,10 +639,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     );
     const total = Math.max(0, subtotal - descuento);
     const folio = generateFolio('V');
-    const ventaId = 'v-' + Date.now();
+    const ventaId = crypto.randomUUID();
 
     const ventaItems = state.carrito.map((item, idx) => ({
-      id: `vi-${Date.now()}-${idx}`,
+      id: crypto.randomUUID(),
       venta_id: ventaId,
       producto_id: item.producto_id,
       nombre_producto: item.nombre,
@@ -685,7 +700,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     let clientesActualizados = state.clientes;
     if (medioPago === 'credito' && clienteId) {
       const nuevaCxC: CuentaPorCobrar = {
-        id: 'cxc-' + Date.now(),
+        id: crypto.randomUUID(),
         negocio_id: state.negocio.id,
         venta_id: ventaId,
         cliente_id: clienteId,
@@ -716,6 +731,27 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
 
     saveState();
+    // Sync sale to Supabase
+    syncToSupabase(() => db.registrarVentaAtomicaRPC({
+      negocioId: state.negocio.id,
+      usuarioId: state.usuarioActual.id,
+      clienteId: clienteId || null,
+      numeroFolio: folio,
+      subtotal,
+      descuento,
+      total,
+      medioPago,
+      sesionCajaId: state.cajaSesion?.id || null,
+      notas: notas || null,
+      offlineId: ventaId,
+      items: state.carrito.map((item) => ({
+        producto_id: item.producto_id ?? null,
+        nombre: item.nombre,
+        cantidad: item.cantidad,
+        precio_unitario: item.precio_unitario,
+        costo_unitario: item.costo_unitario,
+      })),
+    }));
     return { success: true, venta: nuevaVenta };
   },
 
@@ -1043,40 +1079,36 @@ export const useAppStore = create<AppState>((set, get) => ({
   // BALANCE
   periodoBalance: 'hoy',
   setPeriodoBalance: (periodo) => set({ periodoBalance: periodo }),
+
+  // Persistencia manual (para uso externo después de setState directo)
+  saveStateImmediate: () => saveState(),
 }));
 
-let saveTimeout: any = null;
-
 function saveState() {
-  if (saveTimeout) {
-    clearTimeout(saveTimeout);
+  try {
+    const state = useAppStore.getState();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      isAuthenticated: state.isAuthenticated,
+      negocio: state.negocio,
+      usuarioActual: state.usuarioActual,
+      usuarios: state.usuarios,
+      categorias: state.categorias,
+      productos: state.productos,
+      ventas: state.ventas,
+      gastos: state.gastos,
+      cuentasPorCobrar: state.cuentasPorCobrar,
+      abonosCxC: state.abonosCxC,
+      cuentasPorPagar: state.cuentasPorPagar,
+      abonosCxP: state.abonosCxP,
+      clientes: state.clientes,
+      proveedores: state.proveedores,
+      cajaSesion: state.cajaSesion,
+      historialCajas: state.historialCajas,
+      movimientosInventario: state.movimientosInventario,
+    }));
+  } catch (e) {
+    console.error('Error saving state:', e);
   }
-  saveTimeout = setTimeout(() => {
-    try {
-      const state = useAppStore.getState();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        isAuthenticated: state.isAuthenticated,
-        negocio: state.negocio,
-        usuarioActual: state.usuarioActual,
-        usuarios: state.usuarios,
-        categorias: state.categorias,
-        productos: state.productos,
-        ventas: state.ventas,
-        gastos: state.gastos,
-        cuentasPorCobrar: state.cuentasPorCobrar,
-        abonosCxC: state.abonosCxC,
-        cuentasPorPagar: state.cuentasPorPagar,
-        abonosCxP: state.abonosCxP,
-        clientes: state.clientes,
-        proveedores: state.proveedores,
-        cajaSesion: state.cajaSesion,
-        historialCajas: state.historialCajas,
-        movimientosInventario: state.movimientosInventario,
-      }));
-    } catch (e) {
-      console.error('Error saving state:', e);
-    }
-  }, 50);
 }
 
 // Background sync helper — fire-and-forget, does NOT block UI

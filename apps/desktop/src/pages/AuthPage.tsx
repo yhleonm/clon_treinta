@@ -86,6 +86,8 @@ export const AuthPage: React.FC = () => {
             historialCajas: businessData.cajaSesiones,
             movimientosInventario: businessData.movimientosInventario
           });
+          // Persist loaded Supabase data to localStorage
+          useAppStore.getState().saveStateImmediate?.();
         }
       } else {
         const res = login(loginIdentifier, loginPassword);
@@ -157,6 +159,8 @@ export const AuthPage: React.FC = () => {
             historialCajas: businessData.cajaSesiones,
             movimientosInventario: businessData.movimientosInventario
           });
+          // Persist loaded Supabase data to localStorage
+          useAppStore.getState().saveStateImmediate?.();
         }
       } else {
         const res = registerBusiness(

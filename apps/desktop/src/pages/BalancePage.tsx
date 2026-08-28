@@ -53,13 +53,17 @@ export const BalancePage: React.FC<BalancePageProps> = ({
   const [activeMainTab, setActiveMainTab] = useState<'transacciones' | 'cierres'>('transacciones');
 
   // Sub-tabs: Ingresos | Egresos | Por cobrar | Por pagar
-  const [activeSubTab, setActiveSubTab] = useState<'ingresos' | 'egresos' | 'por_cobrar' | 'por_pagar'>('egresos');
+  const [activeSubTab, setActiveSubTab] = useState<'ingresos' | 'egresos' | 'por_cobrar' | 'por_pagar'>('ingresos');
 
   // Filter states
   const [periodoFiltro, setPeriodoFiltro] = useState<'dia' | 'semana' | 'mes' | 'todo'>('dia');
-  const [selectedDate, setSelectedDate] = useState<string>(
-    new Date().toISOString().split('T')[0] || ''
-  );
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  });
   const [searchTerm, setSearchTerm] = useState('');
 
   // Modals
