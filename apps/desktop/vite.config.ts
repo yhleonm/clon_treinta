@@ -12,8 +12,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: '../../dist',
-    emptyOutDir: true,
+    outDir: 'dist',
     chunkSizeWarningLimit: 2500,
   },
   server: {
