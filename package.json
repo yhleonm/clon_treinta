@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "dev": "npm run dev --workspace=@treinta/desktop",
-    "build": "npm run build --workspaces --if-present && node -e \"const fs=require('fs'); if(fs.existsSync('apps/desktop/dist')) fs.cpSync('apps/desktop/dist', 'dist', {recursive: true});\"",
+    "build": "npm run build --workspaces --if-present && node scripts/sync-dist.js",
     "lint": "npm run lint --workspaces --if-present",
     "clean": "npm run clean --workspaces --if-present"
   },
