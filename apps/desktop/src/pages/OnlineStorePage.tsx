@@ -20,7 +20,7 @@ export const OnlineStorePage: React.FC = () => {
   const [copied, setCopied] = useState(false);
 
   const storeSlug = negocio.nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-  const storeUrl = `https://mitienda.treinta.co/${storeSlug}`;
+  const storeUrl = `https://mitienda.stockpro.app/${storeSlug}`;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(storeUrl);

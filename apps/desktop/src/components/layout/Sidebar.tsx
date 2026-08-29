@@ -47,10 +47,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, onOpe
       <div className="flex-1 overflow-y-auto">
         {/* Brand Header */}
         <div className="px-5 pt-4 pb-3 flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-emerald-600 flex items-center justify-center font-black text-white text-base shadow-sm">
-            30
+          <div className="w-8 h-8 rounded-xl bg-emerald-600 flex items-center justify-center font-black text-white text-sm shadow-sm">
+            SP
           </div>
-          <span className="font-black text-xl text-slate-900 tracking-tight">Treinta</span>
+          <span className="font-black text-xl text-slate-900 tracking-tight">StockPro</span>
         </div>
 
         {/* Business & Active User Selector Pill */}

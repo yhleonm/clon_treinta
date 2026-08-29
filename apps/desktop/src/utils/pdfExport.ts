@@ -34,12 +34,12 @@ export function exportBalanceToPDF(params: ExportBalancePdfParams) {
   const doc = new jsPDF();
 
   // Color Palette
-  const primaryColor: [number, number, number] = [0, 168, 107]; // Treinta Emerald
+  const primaryColor: [number, number, number] = [0, 168, 107]; // StockPro Emerald
   const darkColor: [number, number, number] = [15, 23, 42]; // Slate 900
   const grayColor: [number, number, number] = [100, 116, 139]; // Slate 500
 
   // 1. Header Banner
-  doc.setFillColor(...primaryColor); // Treinta Emerald Header
+  doc.setFillColor(...primaryColor); // StockPro Emerald Header
   doc.rect(0, 0, 210, 26, 'F');
 
   doc.setTextColor(255, 255, 255);
@@ -156,7 +156,7 @@ export function exportBalanceToPDF(params: ExportBalancePdfParams) {
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
     doc.text(
-      `Página ${i} de ${pageCount} - Generado por Treinta App`,
+      `Página ${i} de ${pageCount} - Generado por StockPro App`,
       14,
       doc.internal.pageSize.height - 10
     );

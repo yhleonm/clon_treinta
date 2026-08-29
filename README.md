@@ -1,6 +1,6 @@
-# 🚀 Clon de Treinta - Sistema de Gestión de Negocio
+# 🚀 StockPro - Sistema de Control de Stock y Gestión de Negocio
 
-Aplicación de gestión inspirada en **Treinta** enfocada en:
+Aplicación de gestión y control de inventario **StockPro** enfocada en:
 1. **Ventas (Punto de Venta / POS)** con catálogo visual, canasta reactiva, venta libre y múltiples medios de pago (Efectivo, Nequi, Daviplata, Tarjeta, Transferencia y Fiado a crédito).
 2. **Gastos y Egresos** con impacto automático en caja y cuentas por pagar a proveedores.
 3. **Inventario en Tiempo Real** con alertas de stock mínimo, valorización a costo/venta y trazabilidad (Kardex).

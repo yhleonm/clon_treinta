@@ -16,15 +16,68 @@ import { CashRegisterModal } from './components/caja/CashRegisterModal';
 import { ExpenseModal } from './components/expenses/ExpenseModal';
 import { SettingsModal } from './components/settings/SettingsModal';
 import { useAppStore } from './store/useAppStore';
+import { supabase, isSupabaseConfigured } from './lib/supabase';
+import { fetchUsuarioProfile } from './lib/supabase-auth';
 
 export function App() {
-  const { isAuthenticated, usuarioActual } = useAppStore();
+  const { isAuthenticated, usuarioActual, syncWithSupabase, negocio } = useAppStore();
   const [currentTab, setCurrentTab] = useState<TabView>('pos');
   const [isCashModalOpen, setIsCashModalOpen] = useState(false);
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
   const isAdmin = usuarioActual?.rol === 'administrador' || usuarioActual?.rol === 'propietario';
+
+  // 1. Session check & bootstrap sync on mount
+  useEffect(() => {
+    async function bootstrapSync() {
+      if (!isSupabaseConfigured || !supabase) return;
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const profile = await fetchUsuarioProfile(session.user.id);
+          if (profile.success && profile.data) {
+            useAppStore.setState({
+              isAuthenticated: true,
+              negocio: profile.data.negocio,
+              usuarioActual: profile.data.usuario,
+            });
+            await syncWithSupabase();
+          }
+        } else if (isAuthenticated && negocio?.id && negocio.id !== 'neg-triunfo-01') {
+          // If state is authenticated in localStorage, trigger sync
+          await syncWithSupabase();
+        }
+      } catch (err) {
+        console.error('[App Bootstrap] Sync error:', err);
+      }
+    }
+
+    bootstrapSync();
+
+    // 2. Realtime listener for cross-device updates (Mobile <-> Desktop)
+    let channel: any = null;
+    if (isSupabaseConfigured && supabase && negocio?.id && negocio.id !== 'neg-triunfo-01') {
+      channel = supabase
+        .channel(`stockpro-sync-${negocio.id}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', filter: `negocio_id=eq.${negocio.id}` },
+          () => {
+            console.log('[Realtime] Change detected from another client, syncing...');
+            syncWithSupabase();
+          }
+        )
+        .subscribe();
+    }
+
+    return () => {
+      if (channel && supabase) {
+        supabase.removeChannel(channel);
+      }
+    };
+  }, [negocio?.id, isAuthenticated]);
 
   // If role changes to vendedor and current tab is restricted, redirect to pos
   useEffect(() => {

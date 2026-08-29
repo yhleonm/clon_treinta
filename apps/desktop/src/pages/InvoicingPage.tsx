@@ -105,10 +105,10 @@ export const InvoicingPage: React.FC = () => {
           <div className="flex items-center gap-3 w-full md:w-auto">
             <div className="text-right hidden sm:block">
               <div className="text-xs text-slate-500 font-bold">Proveedor Tecnológico</div>
-              <div className="text-xs font-black text-slate-900">Treinta Pagos SAS (NIT: 901.458.789)</div>
+              <div className="text-xs font-black text-slate-900">StockPro Soluciones SAS (NIT: 901.458.789)</div>
             </div>
             <div className="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center font-black text-emerald-700">
-              30
+              SP
             </div>
           </div>
         </div>

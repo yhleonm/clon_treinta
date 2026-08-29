@@ -1,24 +1,21 @@
 import React, { useState } from 'react';
 import {
-  Store,
   Lock,
   Mail,
   User,
-  ShieldCheck,
   ArrowRight,
   Sparkles,
   AlertCircle,
-  Phone,
   Building2,
   CheckCircle2,
+  Package,
 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { signUpNewBusiness, signInWithEmail, fetchUsuarioProfile } from '../lib/supabase-auth';
 import { isSupabaseConfigured } from '../lib/supabase';
-import { loadBusinessData } from '../lib/supabase-db';
 
 export const AuthPage: React.FC = () => {
-  const { login, registerBusiness, loadDemoBusiness } = useAppStore();
+  const { login, registerBusiness, loadDemoBusiness, syncWithSupabase } = useAppStore();
 
   const [tab, setTab] = useState<'login' | 'register'>('login');
   const [isLoading, setIsLoading] = useState(false);
@@ -55,6 +52,11 @@ export const AuthPage: React.FC = () => {
       if (isSupabaseConfigured) {
         const signInResult = await signInWithEmail(loginIdentifier, loginPassword);
         if (!signInResult.success || !signInResult.userId) {
+          // If Supabase sign in failed, check if user exists in local store fallback
+          const localRes = login(loginIdentifier, loginPassword);
+          if (localRes.success) {
+            return;
+          }
           throw new Error(signInResult.error || 'Error al iniciar sesión');
         }
 
@@ -70,25 +72,8 @@ export const AuthPage: React.FC = () => {
           usuarios: [profileResult.data.usuario]
         });
 
-        const businessData = await loadBusinessData(profileResult.data.negocio.id);
-        
-        if (businessData) {
-          useAppStore.setState({
-            categorias: businessData.categorias,
-            productos: businessData.productos,
-            clientes: businessData.clientes,
-            proveedores: businessData.proveedores,
-            ventas: businessData.ventas.map((v: any) => ({ ...v, items: v.venta_items || [] })),
-            gastos: businessData.gastos,
-            cuentasPorCobrar: businessData.cuentasPorCobrar,
-            cuentasPorPagar: businessData.cuentasPorPagar,
-            cajaSesion: businessData.cajaSesiones.find((c: any) => c.estado === 'abierta') || null,
-            historialCajas: businessData.cajaSesiones,
-            movimientosInventario: businessData.movimientosInventario
-          });
-          // Persist loaded Supabase data to localStorage
-          useAppStore.getState().saveStateImmediate?.();
-        }
+        // Perform bidirectional sync: pulls all remote data and pushes any local unsynced items
+        await syncWithSupabase();
       } else {
         const res = login(loginIdentifier, loginPassword);
         if (!res.success) {
@@ -128,7 +113,7 @@ export const AuthPage: React.FC = () => {
 
         const signInResult = await signInWithEmail(registerEmail, registerPassword);
         if (!signInResult.success || !signInResult.userId) {
-          throw new Error(signInResult.error || 'Error al iniciar sesión después de registrarse');
+          throw new Error(signInResult.error || 'Negocio registrado. Por favor inicia sesión.');
         }
 
         const profileResult = await fetchUsuarioProfile(signInResult.userId);
@@ -140,28 +125,21 @@ export const AuthPage: React.FC = () => {
           isAuthenticated: true,
           negocio: profileResult.data.negocio,
           usuarioActual: profileResult.data.usuario,
-          usuarios: [profileResult.data.usuario]
+          usuarios: [profileResult.data.usuario],
+          categorias: [],
+          productos: [],
+          ventas: [],
+          gastos: [],
+          clientes: [],
+          proveedores: [],
+          cuentasPorCobrar: [],
+          cuentasPorPagar: [],
+          cajaSesion: null,
+          historialCajas: [],
+          movimientosInventario: []
         });
 
-        const businessData = await loadBusinessData(profileResult.data.negocio.id);
-        
-        if (businessData) {
-          useAppStore.setState({
-            categorias: businessData.categorias,
-            productos: businessData.productos,
-            clientes: businessData.clientes,
-            proveedores: businessData.proveedores,
-            ventas: businessData.ventas.map((v: any) => ({ ...v, items: v.venta_items || [] })),
-            gastos: businessData.gastos,
-            cuentasPorCobrar: businessData.cuentasPorCobrar,
-            cuentasPorPagar: businessData.cuentasPorPagar,
-            cajaSesion: businessData.cajaSesiones.find((c: any) => c.estado === 'abierta') || null,
-            historialCajas: businessData.cajaSesiones,
-            movimientosInventario: businessData.movimientosInventario
-          });
-          // Persist loaded Supabase data to localStorage
-          useAppStore.getState().saveStateImmediate?.();
-        }
+        await syncWithSupabase();
       } else {
         const res = registerBusiness(
           businessName,
@@ -191,13 +169,13 @@ export const AuthPage: React.FC = () => {
 
         {/* Brand Header */}
         <div className="flex items-center gap-3.5 relative z-10">
-          <div className="w-12 h-12 rounded-2xl bg-white text-emerald-800 flex items-center justify-center font-black text-2xl shadow-xl shadow-emerald-950/20">
-            30
+          <div className="w-12 h-12 rounded-2xl bg-white text-emerald-800 flex items-center justify-center font-black text-xl shadow-xl shadow-emerald-950/20">
+            SP
           </div>
           <div>
-            <h1 className="font-extrabold text-2xl tracking-tight leading-none">Treinta</h1>
+            <h1 className="font-extrabold text-2xl tracking-tight leading-none">StockPro</h1>
             <p className="text-emerald-100 text-xs font-semibold mt-0.5">
-              Gestión de Negocio Inteligente
+              Control de Stock y Gestión de Negocio
             </p>
           </div>
         </div>
@@ -206,7 +184,7 @@ export const AuthPage: React.FC = () => {
         <div className="my-10 space-y-6 relative z-10 max-w-md">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/15 border border-white/20 text-xs font-bold backdrop-blur-sm">
             <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-            <span>Multi-usuario y control de caja</span>
+            <span>Sincronización Multi-dispositivo en Tiempo Real</span>
           </div>
 
           <h2 className="text-3xl lg:text-4xl font-extrabold leading-tight tracking-tight">
@@ -221,11 +199,11 @@ export const AuthPage: React.FC = () => {
             </li>
             <li className="flex items-center gap-3">
               <CheckCircle2 className="w-5 h-5 text-emerald-300 shrink-0" />
-              <span>Inventario actualizado en tiempo real con alertas de stock.</span>
+              <span>Inventario sincronizado entre tu celular y computador.</span>
             </li>
             <li className="flex items-center gap-3">
               <CheckCircle2 className="w-5 h-5 text-emerald-300 shrink-0" />
-              <span>Balances financieros y control de fiados a clientes.</span>
+              <span>Balances financieros, control de caja y fiados a clientes.</span>
             </li>
           </ul>
         </div>
@@ -273,7 +251,7 @@ export const AuthPage: React.FC = () => {
             {tab === 'login' && (
               <form onSubmit={handleLogin} className="space-y-4 animate-in fade-in duration-150">
                 <div>
-                  <h3 className="text-lg font-extrabold text-white">Bienvenido de vuelta</h3>
+                  <h3 className="text-lg font-extrabold text-white">Bienvenido a StockPro</h3>
                   <p className="text-xs text-slate-400 mt-0.5">
                     Ingresa con tu correo o número de celular registrado
                   </p>
@@ -327,7 +305,7 @@ export const AuthPage: React.FC = () => {
                   disabled={isLoading}
                   className="w-full py-3.5 px-4 bg-emerald-500 hover:bg-emerald-400 active:scale-98 text-slate-950 rounded-2xl font-black text-sm shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
                 >
-                  <span>{isLoading ? 'Cargando...' : 'Iniciar Sesión'}</span>
+                  <span>{isLoading ? 'Cargando y sincronizando...' : 'Iniciar Sesión'}</span>
                   {!isLoading && <ArrowRight className="w-4 h-4" />}
                 </button>
 
@@ -360,7 +338,7 @@ export const AuthPage: React.FC = () => {
             {tab === 'register' && (
               <form onSubmit={handleRegister} className="space-y-4 animate-in fade-in duration-150">
                 <div>
-                  <h3 className="text-lg font-extrabold text-white">Registra tu Negocio</h3>
+                  <h3 className="text-lg font-extrabold text-white">Registra tu Negocio en StockPro</h3>
                   <p className="text-xs text-slate-400 mt-0.5">
                     Crea tu cuenta de propietario en 1 minuto
                   </p>
@@ -436,7 +414,7 @@ export const AuthPage: React.FC = () => {
                     <input
                       type="password"
                       required
-                      placeholder="Mínimo 4 caracteres (ej. 1234)"
+                      placeholder="Mínimo 6 caracteres"
                       value={registerPassword}
                       onChange={(e) => setRegisterPassword(e.target.value)}
                       disabled={isLoading}
@@ -450,7 +428,7 @@ export const AuthPage: React.FC = () => {
                   disabled={isLoading}
                   className="w-full py-3.5 px-4 bg-emerald-500 hover:bg-emerald-400 active:scale-98 text-slate-950 rounded-2xl font-black text-sm shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
                 >
-                  <span>{isLoading ? 'Cargando...' : 'Crear mi Negocio Gratis'}</span>
+                  <span>{isLoading ? 'Creando negocio...' : 'Crear mi Negocio Gratis'}</span>
                   {!isLoading && <ArrowRight className="w-4 h-4" />}
                 </button>
               </form>

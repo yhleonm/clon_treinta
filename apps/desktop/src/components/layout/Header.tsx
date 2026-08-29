@@ -5,7 +5,7 @@ import {
   PlusCircle,
   Cloud,
   Clock,
-  Sparkles,
+  RefreshCw,
 } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { formatCurrency } from '@treinta/shared';
@@ -19,7 +19,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenCashModal,
   onOpenExpenseModal,
 }) => {
-  const { cajaSesion, usuarioActual } = useAppStore();
+  const { cajaSesion, usuarioActual, isSyncing, syncWithSupabase } = useAppStore();
 
   const isCajaAbierta = cajaSesion && cajaSesion.estado === 'abierta';
 
@@ -50,11 +50,25 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </button>
 
-        {/* Sync Status */}
-        <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 text-xs font-medium border border-slate-200">
-          <Cloud className="w-3.5 h-3.5 text-emerald-500" />
-          <span>Sincronizado</span>
-        </div>
+        {/* Sync Status Button */}
+        <button
+          onClick={() => syncWithSupabase()}
+          disabled={isSyncing}
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium border border-slate-200 transition cursor-pointer disabled:opacity-75"
+          title="Haz clic para forzar sincronización con la nube"
+        >
+          {isSyncing ? (
+            <>
+              <RefreshCw className="w-3.5 h-3.5 text-emerald-600 animate-spin" />
+              <span className="text-emerald-700 font-semibold">Sincronizando...</span>
+            </>
+          ) : (
+            <>
+              <Cloud className="w-3.5 h-3.5 text-emerald-500" />
+              <span>Sincronizado</span>
+            </>
+          )}
+        </button>
       </div>
 
       {/* Action Buttons */}

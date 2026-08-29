@@ -1,5 +1,8 @@
 import { MedioPago, RolUsuario, TipoMovimientoInventario } from '../types';
 
+export const APP_NAME = 'StockPro';
+export const APP_DESCRIPTION = 'Control de Stock y Gestión de Negocio Inteligente';
+
 export const MEDIOS_DE_PAGO: { id: MedioPago; label: string; icono: string; color: string }[] = [
   { id: 'efectivo', label: 'Efectivo', icono: 'banknote', color: '#10B981' },
   { id: 'nequi', label: 'Nequi', icono: 'smartphone', color: '#7828C8' },

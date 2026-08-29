@@ -39,9 +39,22 @@ import {
 import { isSupabaseConfigured } from '../lib/supabase';
 import * as db from '../lib/supabase-db';
 
-interface AppState {
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isValidUUID(str?: string | null): boolean {
+  return Boolean(str && UUID_REGEX.test(str));
+}
+
+function ensureUUID(id?: string | null): string {
+  if (isValidUUID(id)) return id!;
+  return crypto.randomUUID();
+}
+
+export interface AppState {
   // Configuración de Sesión y Negocio
   isAuthenticated: boolean;
+  isSyncing: boolean;
+  lastSyncedAt: string | null;
   negocio: Negocio;
   usuarioActual: Usuario;
   usuarios: Usuario[];
@@ -126,20 +139,27 @@ interface AppState {
   periodoBalance: 'hoy' | 'semana' | 'mes' | 'todo';
   setPeriodoBalance: (periodo: 'hoy' | 'semana' | 'mes' | 'todo') => void;
 
-  // Persistencia manual (para uso externo después de setState directo)
+  // Sincronización Manual y Automática
+  syncWithSupabase: () => Promise<boolean>;
   saveStateImmediate: () => void;
 }
 
-const STORAGE_KEY = 'treinta_app_state_v1';
+const STORAGE_KEY = 'stockpro_app_state_v1';
+const LEGACY_STORAGE_KEY = 'treinta_app_state_v1';
 
-// Cargar estado inicial desde localStorage si existe
+// Cargar estado inicial desde localStorage (con migración retrocompatible automática a UUIDs)
 const loadPersistedState = () => {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    let saved = localStorage.getItem(STORAGE_KEY);
+    if (!saved) {
+      // Intento con clave de migración anterior
+      saved = localStorage.getItem(LEGACY_STORAGE_KEY);
+    }
+
     if (saved) {
       const parsed = JSON.parse(saved);
-      // Clean up / sanitize legacy state:
-      // If business is NOT demo business, purge any mock users (Jackeline/Manolo) that might have been accidentally saved into it
+
+      // Limpieza de usuarios demo si no es negocio demo
       if (parsed.negocio && parsed.usuarios) {
         if (parsed.negocio.id !== INITIAL_NEGOCIO.id) {
           parsed.usuarios = parsed.usuarios.filter(
@@ -157,6 +177,86 @@ const loadPersistedState = () => {
           }
         }
       }
+
+      // Migrar IDs locales con prefijo a UUIDs válidos para no perder datos en Supabase
+      const idMap: Record<string, string> = {};
+      const getId = (oldId?: string | null) => {
+        if (!oldId) return oldId;
+        if (isValidUUID(oldId)) return oldId;
+        if (!idMap[oldId]) {
+          idMap[oldId] = crypto.randomUUID();
+        }
+        return idMap[oldId];
+      };
+
+      if (parsed.categorias && Array.isArray(parsed.categorias)) {
+        parsed.categorias = parsed.categorias.map((c: any) => ({
+          ...c,
+          id: getId(c.id),
+        }));
+      }
+
+      if (parsed.productos && Array.isArray(parsed.productos)) {
+        parsed.productos = parsed.productos.map((p: any) => ({
+          ...p,
+          id: getId(p.id),
+          categoria_id: p.categoria_id ? getId(p.categoria_id) : null,
+        }));
+      }
+
+      if (parsed.clientes && Array.isArray(parsed.clientes)) {
+        parsed.clientes = parsed.clientes.map((c: any) => ({
+          ...c,
+          id: getId(c.id),
+        }));
+      }
+
+      if (parsed.proveedores && Array.isArray(parsed.proveedores)) {
+        parsed.proveedores = parsed.proveedores.map((p: any) => ({
+          ...p,
+          id: getId(p.id),
+        }));
+      }
+
+      if (parsed.cajaSesion) {
+        parsed.cajaSesion = {
+          ...parsed.cajaSesion,
+          id: getId(parsed.cajaSesion.id),
+        };
+      }
+
+      if (parsed.historialCajas && Array.isArray(parsed.historialCajas)) {
+        parsed.historialCajas = parsed.historialCajas.map((c: any) => ({
+          ...c,
+          id: getId(c.id),
+        }));
+      }
+
+      if (parsed.gastos && Array.isArray(parsed.gastos)) {
+        parsed.gastos = parsed.gastos.map((g: any) => ({
+          ...g,
+          id: getId(g.id),
+          proveedor_id: g.proveedor_id ? getId(g.proveedor_id) : null,
+          sesion_caja_id: g.sesion_caja_id ? getId(g.sesion_caja_id) : null,
+        }));
+      }
+
+      if (parsed.ventas && Array.isArray(parsed.ventas)) {
+        parsed.ventas = parsed.ventas.map((v: any) => ({
+          ...v,
+          id: getId(v.id),
+          cliente_id: v.cliente_id ? getId(v.cliente_id) : null,
+          sesion_caja_id: v.sesion_caja_id ? getId(v.sesion_caja_id) : null,
+          items: Array.isArray(v.items)
+            ? v.items.map((it: any) => ({
+                ...it,
+                id: getId(it.id),
+                producto_id: it.producto_id ? getId(it.producto_id) : null,
+              }))
+            : [],
+        }));
+      }
+
       return parsed;
     }
   } catch (e) {
@@ -168,7 +268,9 @@ const loadPersistedState = () => {
 const savedState = loadPersistedState();
 
 export const useAppStore = create<AppState>((set, get) => ({
-  isAuthenticated: savedState?.isAuthenticated ?? false, // default false — require login on first visit
+  isAuthenticated: savedState?.isAuthenticated ?? false,
+  isSyncing: false,
+  lastSyncedAt: null,
   negocio: savedState?.negocio || INITIAL_NEGOCIO,
   usuarioActual: savedState?.usuarioActual || INITIAL_USUARIOS[0]!,
   usuarios: savedState?.usuarios || INITIAL_USUARIOS,
@@ -179,7 +281,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     const cleanPhone = query.replace(/\D/g, '');
     const isPhone = cleanPhone.length >= 7;
 
-    // Only search in valid users of the active business
     const validUsers = state.usuarios.filter(
       (u) =>
         state.negocio.id === INITIAL_NEGOCIO.id ||
@@ -202,7 +303,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       };
     }
 
-    // Verificar contraseña: demo users aceptan PIN '1234', registered users usan su password
     const storedPass = (found as any).password || '1234';
     if (pass.trim() !== storedPass) {
       return {
@@ -245,7 +345,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       usuarioActual: propietario,
       usuarios: [propietario],
       isAuthenticated: true,
-      // Reset all business data for the new negocio
       categorias: [],
       productos: [],
       ventas: [],
@@ -272,7 +371,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   loadDemoBusiness: () => {
     const state = get();
-    // Preserve user-created products that don't exist in demo data
     const demoProductIds = new Set(INITIAL_PRODUCTOS.map((p) => p.id));
     const userProducts = state.productos.filter((p) => !demoProductIds.has(p.id));
     const demoCatIds = new Set(INITIAL_CATEGORIAS.map((c) => c.id));
@@ -304,7 +402,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     const targetUser = INITIAL_USUARIOS.find((u) => u.id === userId) || INITIAL_USUARIOS[0]!;
 
     if (!isDemoBusiness) {
-      // Switch workspace to Demo Store — preserve user-created products
       const demoProductIds = new Set(INITIAL_PRODUCTOS.map((p) => p.id));
       const userProducts = state.productos.filter((p) => !demoProductIds.has(p.id));
       const demoCatIds = new Set(INITIAL_CATEGORIAS.map((c) => c.id));
@@ -384,10 +481,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     const cleanNegocio = state.negocio.nombre.trim().toLowerCase().replace(/\s+/g, '');
     const finalEmail = email?.trim()
       ? email.trim().toLowerCase()
-      : `${cleanNombre}@${cleanNegocio || 'negocio'}.com`;
+      : `${cleanNombre}@${cleanNegocio || 'stockpro'}.com`;
 
     const nuevo: Usuario = {
-      id: 'u-' + Date.now(),
+      id: crypto.randomUUID(),
       negocio_id: state.negocio.id,
       nombre: nombre.trim(),
       email: finalEmail,
@@ -401,6 +498,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     };
     set((s) => ({ usuarios: [...s.usuarios, nuevo] }));
     saveState();
+    syncToSupabase(() => db.insertUsuario(nuevo));
   },
 
   editarEmpleado: (id, datos) => {
@@ -421,12 +519,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       usuarios: s.usuarios.filter((u) => u.id !== id),
     }));
     saveState();
+    syncToSupabase(() => db.deleteUsuario(id));
   },
 
   categorias: savedState?.categorias || INITIAL_CATEGORIAS,
   agregarCategoria: (nombre: string, colorHex: string = '#10B981') => {
     const nueva: Categoria = {
-      id: 'cat-' + Date.now(),
+      id: crypto.randomUUID(),
       negocio_id: get().negocio.id,
       nombre: nombre.trim(),
       color_hex: colorHex,
@@ -436,13 +535,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     };
     set((s) => ({ categorias: [...s.categorias, nueva] }));
     saveState();
-    syncToSupabase(() => db.insertCategoria({
-      nombre: nombre.trim(),
-      negocio_id: get().negocio.id,
-      color_hex: colorHex,
-      icono: 'tag',
-      activo: true,
-    }));
+    syncToSupabase(() => db.insertCategoria(nueva));
     return nueva;
   },
 
@@ -462,25 +555,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       ...prodData,
       id: crypto.randomUUID(),
       negocio_id: state.negocio.id,
+      categoria_id: prodData.categoria_id || null,
       activo: true,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
     set((s) => ({ productos: [nuevo, ...s.productos] }));
     saveState();
-    syncToSupabase(() => db.insertProducto({
-      nombre: prodData.nombre,
-      negocio_id: state.negocio.id,
-      categoria_id: prodData.categoria_id || null,
-      descripcion: prodData.descripcion || null,
-      sku: prodData.sku || null,
-      precio_venta: prodData.precio_venta,
-      costo: prodData.costo,
-      stock_actual: prodData.stock_actual,
-      stock_minimo: prodData.stock_minimo,
-      imagen_url: prodData.imagen_url || null,
-      activo: true,
-    }));
+    syncToSupabase(() => db.insertProducto(nuevo));
   },
 
   editarProducto: (id, datos) => {
@@ -504,51 +586,38 @@ export const useAppStore = create<AppState>((set, get) => ({
   movimientosInventario: savedState?.movimientosInventario || [],
 
   ajustarStock: (productoId, cantidad, motivo) => {
-    set((s) => {
-      const prod = s.productos.find((p) => p.id === productoId);
-      if (!prod) return s;
-      const nuevoStock = prod.stock_actual + cantidad;
-      const nuevoMov: MovimientoInventario = {
-        id: 'mov-' + Date.now(),
-        negocio_id: s.negocio.id,
-        producto_id: productoId,
-        usuario_id: s.usuarioActual.id,
-        tipo: cantidad >= 0 ? 'ajuste_manual' : 'merma',
-        cantidad: Math.abs(cantidad),
-        stock_anterior: prod.stock_actual,
-        stock_nuevo: nuevoStock,
-        motivo: motivo || 'Ajuste manual de inventario',
-        created_at: new Date().toISOString(),
-        producto: prod,
-        usuario: s.usuarioActual,
-      };
+    const s = get();
+    const prod = s.productos.find((p) => p.id === productoId);
+    if (!prod) return;
+    const nuevoStock = prod.stock_actual + cantidad;
+    const nuevoMov: MovimientoInventario = {
+      id: crypto.randomUUID(),
+      negocio_id: s.negocio.id,
+      producto_id: productoId,
+      usuario_id: s.usuarioActual.id,
+      tipo: cantidad >= 0 ? 'ajuste_manual' : 'merma',
+      cantidad: Math.abs(cantidad),
+      stock_anterior: prod.stock_actual,
+      stock_nuevo: nuevoStock,
+      motivo: motivo || 'Ajuste manual de inventario',
+      created_at: new Date().toISOString(),
+      producto: prod,
+      usuario: s.usuarioActual,
+    };
 
-      return {
-        productos: s.productos.map((p) =>
-          p.id === productoId
-            ? { ...p, stock_actual: nuevoStock, updated_at: new Date().toISOString() }
-            : p
-        ),
-        movimientosInventario: [nuevoMov, ...(s.movimientosInventario || [])],
-      };
+    set({
+      productos: s.productos.map((p) =>
+        p.id === productoId
+          ? { ...p, stock_actual: nuevoStock, updated_at: new Date().toISOString() }
+          : p
+      ),
+      movimientosInventario: [nuevoMov, ...(s.movimientosInventario || [])],
     });
     saveState();
+
     syncToSupabase(async () => {
-      const s = get();
-      const prod = s.productos.find(p => p.id === productoId);
-      if (prod) {
-        await db.adjustStock(productoId, prod.stock_actual);
-        await db.insertMovimientoInventario({
-          negocio_id: s.negocio.id,
-          producto_id: productoId,
-          usuario_id: s.usuarioActual.id,
-          tipo: cantidad >= 0 ? 'ajuste_manual' : 'merma',
-          cantidad: Math.abs(cantidad),
-          stock_anterior: prod.stock_actual - cantidad,
-          stock_nuevo: prod.stock_actual,
-          motivo: motivo || 'Ajuste manual de inventario',
-        });
-      }
+      await db.adjustStock(productoId, nuevoStock);
+      await db.insertMovimientoInventario(nuevoMov);
     });
   },
 
@@ -628,7 +697,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       return { success: false, error: 'El carrito está vacío' };
     }
 
-    // BUG-07: Prevent credit sales without selecting a client
     if (medioPago === 'credito' && !clienteId) {
       return { success: false, error: 'Debe seleccionar un cliente para ventas a crédito (fiado).' };
     }
@@ -641,14 +709,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     const folio = generateFolio('V');
     const ventaId = crypto.randomUUID();
 
-    const ventaItems = state.carrito.map((item, idx) => ({
+    const ventaItems = state.carrito.map((item) => ({
       id: crypto.randomUUID(),
       venta_id: ventaId,
-      producto_id: item.producto_id,
+      producto_id: item.producto_id || null,
       nombre_producto: item.nombre,
       cantidad: item.cantidad,
       precio_unitario: item.precio_unitario,
-      costo_unitario: item.costo_unitario,
+      costo_unitario: item.costo_unitario || 0,
       subtotal: item.precio_unitario * item.cantidad,
       created_at: new Date().toISOString(),
     }));
@@ -727,10 +795,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       cajaSesion: cajaActualizada,
       cuentasPorCobrar: nuevasCxC,
       clientes: clientesActualizados,
-      carrito: [], // Limpiar carrito
+      carrito: [],
     });
 
     saveState();
+
     // Sync sale to Supabase
     syncToSupabase(() => db.registrarVentaAtomicaRPC({
       negocioId: state.negocio.id,
@@ -749,9 +818,10 @@ export const useAppStore = create<AppState>((set, get) => ({
         nombre: item.nombre,
         cantidad: item.cantidad,
         precio_unitario: item.precio_unitario,
-        costo_unitario: item.costo_unitario,
+        costo_unitario: item.costo_unitario || 0,
       })),
     }));
+
     return { success: true, venta: nuevaVenta };
   },
 
@@ -760,7 +830,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   registrarGasto: ({ categoria, concepto, valor, medioPago, esCredito, proveedorId, fecha }) => {
     const state = get();
-    const gastoId = 'g-' + Date.now();
+    const gastoId = crypto.randomUUID();
     const nuevoGasto: Gasto = {
       id: gastoId,
       negocio_id: state.negocio.id,
@@ -778,7 +848,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       usuario: state.usuarioActual,
     };
 
-    // Actualizar caja si fue en efectivo
     let cajaActualizada = state.cajaSesion;
     if (medioPago === 'efectivo' && cajaActualizada && cajaActualizada.estado === 'abierta') {
       cajaActualizada = {
@@ -788,12 +857,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       };
     }
 
-    // Crear cuenta por pagar si fue a crédito con proveedor
     let nuevasCxP = state.cuentasPorPagar;
     let proveedoresActualizados = state.proveedores;
     if (esCredito && proveedorId) {
       const nuevaCxP: CuentaPorPagar = {
-        id: 'cxp-' + Date.now(),
+        id: crypto.randomUUID(),
         negocio_id: state.negocio.id,
         gasto_id: gastoId,
         proveedor_id: proveedorId,
@@ -822,18 +890,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
 
     saveState();
-    syncToSupabase(() => db.insertGasto({
-      negocio_id: state.negocio.id,
-      usuario_id: state.usuarioActual.id,
-      proveedor_id: proveedorId || null,
-      sesion_caja_id: state.cajaSesion?.id || null,
-      categoria,
-      concepto,
-      valor,
-      medio_pago: medioPago,
-      es_credito: esCredito,
-      fecha: fecha || new Date().toISOString(),
-    }));
+    syncToSupabase(() => db.insertGasto(nuevoGasto));
   },
 
   // CUENTAS POR COBRAR (ABONOS)
@@ -845,7 +902,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const cxc = state.cuentasPorCobrar.find((c) => c.id === cuentaId);
     if (!cxc) return;
 
-    const abonoId = 'abcxc-' + Date.now();
+    const abonoId = crypto.randomUUID();
     const nuevoAbono: AbonoCuentaCobrar = {
       id: abonoId,
       negocio_id: state.negocio.id,
@@ -891,16 +948,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
 
     saveState();
-    syncToSupabase(() => db.insertAbonoCxC({
-      negocio_id: state.negocio.id,
-      cuenta_id: cuentaId,
-      cliente_id: cxc.cliente_id,
-      usuario_id: state.usuarioActual.id,
-      sesion_caja_id: state.cajaSesion?.id || null,
-      monto,
-      medio_pago: medioPago,
-      notas,
-    }));
+    syncToSupabase(() => db.insertAbonoCxC(nuevoAbono));
   },
 
   // CUENTAS POR PAGAR (ABONOS)
@@ -912,7 +960,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const cxp = state.cuentasPorPagar.find((c) => c.id === cuentaId);
     if (!cxp) return;
 
-    const abonoId = 'abcxp-' + Date.now();
+    const abonoId = crypto.randomUUID();
     const nuevoAbono: AbonoCuentaPagar = {
       id: abonoId,
       negocio_id: state.negocio.id,
@@ -958,16 +1006,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
 
     saveState();
-    syncToSupabase(() => db.insertAbonoCxP({
-      negocio_id: state.negocio.id,
-      cuenta_id: cuentaId,
-      proveedor_id: cxp.proveedor_id,
-      usuario_id: state.usuarioActual.id,
-      sesion_caja_id: state.cajaSesion?.id || null,
-      monto,
-      medio_pago: medioPago,
-      notas,
-    }));
+    syncToSupabase(() => db.insertAbonoCxP(nuevoAbono));
   },
 
   // CLIENTES Y PROVEEDORES
@@ -977,7 +1016,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   agregarCliente: (data) => {
     const nuevo: Cliente = {
       ...data,
-      id: 'cl-' + Date.now(),
+      id: crypto.randomUUID(),
       negocio_id: get().negocio.id,
       saldo_deuda: 0,
       activo: true,
@@ -985,13 +1024,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     };
     set((s) => ({ clientes: [nuevo, ...s.clientes] }));
     saveState();
-    syncToSupabase(() => db.insertCliente({ ...data, negocio_id: get().negocio.id, saldo_deuda: 0, activo: true }));
+    syncToSupabase(() => db.insertCliente(nuevo));
   },
 
   agregarProveedor: (data) => {
     const nuevo: Proveedor = {
       ...data,
-      id: 'pr-' + Date.now(),
+      id: crypto.randomUUID(),
       negocio_id: get().negocio.id,
       saldo_deuda: 0,
       activo: true,
@@ -999,7 +1038,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     };
     set((s) => ({ proveedores: [nuevo, ...s.proveedores] }));
     saveState();
-    syncToSupabase(() => db.insertProveedor({ ...data, negocio_id: get().negocio.id, saldo_deuda: 0, activo: true }));
+    syncToSupabase(() => db.insertProveedor(nuevo));
   },
 
   // CAJA SESIONES
@@ -1007,14 +1046,12 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   abrirCaja: (montoInicial, notas) => {
     const state = get();
-
-    // BUG-08: Prevent overwriting an active cash register session
     if (state.cajaSesion && state.cajaSesion.estado === 'abierta') {
-      return; // Caja already open — must close it first
+      return;
     }
 
     const nuevaCaja: CajaSesion = {
-      id: 'caja-' + Date.now(),
+      id: crypto.randomUUID(),
       negocio_id: state.negocio.id,
       usuario_id: state.usuarioActual.id,
       fecha_apertura: new Date().toISOString(),
@@ -1029,17 +1066,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     };
     set({ cajaSesion: nuevaCaja });
     saveState();
-    syncToSupabase(() => db.insertCajaSesion({
-      negocio_id: state.negocio.id,
-      usuario_id: state.usuarioActual.id,
-      monto_inicial: montoInicial,
-      total_ventas_efectivo: 0,
-      total_gastos_efectivo: 0,
-      total_abonos_efectivo: 0,
-      monto_esperado: montoInicial,
-      estado: 'abierta',
-      notas,
-    }));
+    syncToSupabase(() => db.insertCajaSesion(nuevaCaja));
   },
 
   historialCajas: savedState?.historialCajas || [],
@@ -1057,20 +1084,21 @@ export const useAppStore = create<AppState>((set, get) => ({
         notas: notas || s.cajaSesion.notas,
       };
       return {
-        cajaSesion: cajaCerrada,
+        cajaSesion: null,
         historialCajas: [cajaCerrada, ...(s.historialCajas || [])],
       };
     });
     saveState();
     syncToSupabase(async () => {
       const state = get();
-      if (state.cajaSesion) {
-        await db.updateCajaSesion(state.cajaSesion.id, {
-          fecha_cierre: state.cajaSesion.fecha_cierre,
-          monto_real: state.cajaSesion.monto_real,
-          diferencia: state.cajaSesion.diferencia,
+      const lastCaja = state.historialCajas[0];
+      if (lastCaja) {
+        await db.updateCajaSesion(lastCaja.id, {
+          fecha_cierre: lastCaja.fecha_cierre,
+          monto_real: lastCaja.monto_real,
+          diferencia: lastCaja.diferencia,
           estado: 'cerrada',
-          notas: state.cajaSesion.notas,
+          notas: lastCaja.notas,
         });
       }
     });
@@ -1080,7 +1108,88 @@ export const useAppStore = create<AppState>((set, get) => ({
   periodoBalance: 'hoy',
   setPeriodoBalance: (periodo) => set({ periodoBalance: periodo }),
 
-  // Persistencia manual (para uso externo después de setState directo)
+  // SINCRONIZACIÓN CON SUPABASE
+  syncWithSupabase: async () => {
+    const state = get();
+    if (!isSupabaseConfigured || !state.negocio?.id || state.negocio.id === INITIAL_NEGOCIO.id) {
+      return false;
+    }
+
+    set({ isSyncing: true });
+    try {
+      // 1. Push all local items (to back up items created on mobile/offline)
+      await db.pushAllLocalDataToSupabase(state);
+
+      // 2. Pull remote business data to have the complete multi-device state
+      const remoteData = await db.loadBusinessData(state.negocio.id);
+      if (remoteData) {
+        // Merge remote products with any local ones that might have just been added
+        const remoteProdMap = new Map(remoteData.productos.map((p) => [p.id, p]));
+        const mergedProductos = [
+          ...remoteData.productos,
+          ...state.productos.filter((p) => !remoteProdMap.has(p.id))
+        ];
+
+        const remoteCatMap = new Map(remoteData.categorias.map((c) => [c.id, c]));
+        const mergedCategorias = [
+          ...remoteData.categorias,
+          ...state.categorias.filter((c) => !remoteCatMap.has(c.id))
+        ];
+
+        const remoteCliMap = new Map(remoteData.clientes.map((c) => [c.id, c]));
+        const mergedClientes = [
+          ...remoteData.clientes,
+          ...state.clientes.filter((c) => !remoteCliMap.has(c.id))
+        ];
+
+        const remoteProvMap = new Map(remoteData.proveedores.map((p) => [p.id, p]));
+        const mergedProveedores = [
+          ...remoteData.proveedores,
+          ...state.proveedores.filter((p) => !remoteProvMap.has(p.id))
+        ];
+
+        const remoteVentasMap = new Map(remoteData.ventas.map((v) => [v.id, v]));
+        const mergedVentas = [
+          ...remoteData.ventas,
+          ...state.ventas.filter((v) => !remoteVentasMap.has(v.id))
+        ];
+
+        const remoteGastosMap = new Map(remoteData.gastos.map((g) => [g.id, g]));
+        const mergedGastos = [
+          ...remoteData.gastos,
+          ...state.gastos.filter((g) => !remoteGastosMap.has(g.id))
+        ];
+
+        const openCaja = remoteData.cajaSesiones.find((c: any) => c.estado === 'abierta') || null;
+
+        set({
+          categorias: mergedCategorias,
+          productos: mergedProductos,
+          clientes: mergedClientes,
+          proveedores: mergedProveedores,
+          ventas: mergedVentas,
+          gastos: mergedGastos,
+          cuentasPorCobrar: remoteData.cuentasPorCobrar,
+          cuentasPorPagar: remoteData.cuentasPorPagar,
+          cajaSesion: openCaja,
+          historialCajas: remoteData.cajaSesiones,
+          movimientosInventario: remoteData.movimientosInventario,
+          lastSyncedAt: new Date().toISOString(),
+          isSyncing: false,
+        });
+
+        saveState();
+        return true;
+      }
+    } catch (e) {
+      console.error('[Supabase Sync] Sync error:', e);
+    } finally {
+      set({ isSyncing: false });
+    }
+    return false;
+  },
+
+  // Persistencia manual
   saveStateImmediate: () => saveState(),
 }));
 
@@ -1111,7 +1220,7 @@ function saveState() {
   }
 }
 
-// Background sync helper — fire-and-forget, does NOT block UI
+// Background sync helper
 function syncToSupabase(operation: () => Promise<any>) {
   if (isSupabaseConfigured) {
     operation().catch((err) => console.error('[Supabase Sync]', err));
