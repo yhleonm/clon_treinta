@@ -63,6 +63,12 @@ export async function signInWithEmail(
     
     if (error) throw error;
     if (!data.user) throw new Error('No user returned from signIn');
+
+    // Instrumentación diagnóstica (Paso 2)
+    console.log('=== [STOCKPRO DIAGNOSTIC LOG] ===');
+    console.log('AUTH UID:', data.user.id);
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('auth_negocio_id');
+    console.log('NEGOCIO_ID resuelto por RPC:', rpcResult, rpcError);
     
     return { success: true, userId: data.user.id };
   } catch (error: any) {
@@ -107,14 +113,31 @@ export async function fetchUsuarioProfile(
   }
 
   try {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('usuarios')
       .select(`
         *,
         negocio:negocios(*)
       `)
       .eq('id', authUserId)
-      .single();
+      .maybeSingle();
+
+    if (!data && !error) {
+      // Intento alternativo en caso de esquema con columna auth_user_id
+      const retry = await supabase
+        .from('usuarios')
+        .select(`
+          *,
+          negocio:negocios(*)
+        `)
+        .eq('auth_user_id', authUserId)
+        .maybeSingle();
+      if (retry.data) {
+        data = retry.data;
+      }
+    }
+
+    console.log('FILA usuarios:', data, error);
 
     if (error) throw error;
     if (!data) throw new Error('Usuario not found');
@@ -142,4 +165,37 @@ export function onAuthStateChange(callback: (event: string, session: any) => voi
   }
   
   return supabase.auth.onAuthStateChange(callback);
+}
+
+export async function sendPasswordResetEmail(email: string): Promise<{ success: boolean; error?: string }> {
+  if (!supabase) {
+    return { success: false, error: 'Supabase no configurado' };
+  }
+
+  try {
+    const redirectUrl = typeof window !== 'undefined' ? window.location.origin : 'https://clon-treinta-desktop.vercel.app';
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: redirectUrl,
+    });
+    if (error) throw error;
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Error al enviar correo de restablecimiento' };
+  }
+}
+
+export async function updateUserPassword(newPassword: string): Promise<{ success: boolean; error?: string }> {
+  if (!supabase) {
+    return { success: false, error: 'Supabase no configurado' };
+  }
+
+  try {
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+    if (error) throw error;
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Error al actualizar contraseña' };
+  }
 }

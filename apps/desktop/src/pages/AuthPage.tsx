@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Lock,
   Mail,
@@ -9,15 +9,24 @@ import {
   Building2,
   CheckCircle2,
   Package,
+  KeyRound,
+  Check,
 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
-import { signUpNewBusiness, signInWithEmail, fetchUsuarioProfile } from '../lib/supabase-auth';
+import {
+  signUpNewBusiness,
+  signInWithEmail,
+  fetchUsuarioProfile,
+  sendPasswordResetEmail,
+  updateUserPassword,
+  onAuthStateChange,
+} from '../lib/supabase-auth';
 import { isSupabaseConfigured } from '../lib/supabase';
 
 export const AuthPage: React.FC = () => {
   const { login, registerBusiness, loadDemoBusiness, syncWithSupabase } = useAppStore();
 
-  const [tab, setTab] = useState<'login' | 'register'>('login');
+  const [tab, setTab] = useState<'login' | 'register' | 'forgot' | 'reset'>('login');
   const [isLoading, setIsLoading] = useState(false);
 
   // Login form state
@@ -31,6 +40,37 @@ export const AuthPage: React.FC = () => {
   const [registerEmail, setRegisterEmail] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
   const [registerError, setRegisterError] = useState('');
+
+  // Forgot password form state
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotSuccess, setForgotSuccess] = useState('');
+  const [forgotError, setForgotError] = useState('');
+
+  // Reset password form state
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [resetSuccess, setResetSuccess] = useState('');
+  const [resetError, setResetError] = useState('');
+
+  // Detect recovery link in URL on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash || '';
+      if (hash.includes('type=recovery')) {
+        setTab('reset');
+      }
+    }
+
+    const { data: authListener } = onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setTab('reset');
+      }
+    });
+
+    return () => {
+      authListener?.subscription?.unsubscribe?.();
+    };
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,6 +199,64 @@ export const AuthPage: React.FC = () => {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError('');
+    setForgotSuccess('');
+
+    if (!forgotEmail.trim()) {
+      setForgotError('Por favor ingresa tu correo electrónico registrado');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const res = await sendPasswordResetEmail(forgotEmail.trim());
+      if (!res.success) {
+        throw new Error(res.error || 'No se pudo enviar el correo de recuperación');
+      }
+      setForgotSuccess('¡Enlace enviado con éxito! Revisa tu bandeja de entrada o spam.');
+    } catch (err: any) {
+      setForgotError(err.message || 'Error al solicitar restablecimiento');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetError('');
+    setResetSuccess('');
+
+    if (!newPassword.trim() || newPassword.length < 6) {
+      setResetError('La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setResetError('Las contraseñas no coinciden');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const res = await updateUserPassword(newPassword);
+      if (!res.success) {
+        throw new Error(res.error || 'Error al actualizar contraseña');
+      }
+      setResetSuccess('¡Contraseña actualizada con éxito! Redirigiendo al inicio de sesión...');
+      setTimeout(() => {
+        setTab('login');
+        setLoginPassword(newPassword);
+        setResetSuccess('');
+      }, 1500);
+    } catch (err: any) {
+      setResetError(err.message || 'Error al actualizar contraseña');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen w-screen bg-slate-900 flex flex-col lg:flex-row select-none">
       {/* LEFT COLUMN: BRAND HERO & PRESENTATION */}
@@ -220,32 +318,34 @@ export const AuthPage: React.FC = () => {
           {/* Card Container */}
           <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
             {/* Tab Switcher */}
-            <div className="bg-slate-800/80 p-1 rounded-2xl flex items-center">
-              <button
-                type="button"
-                disabled={isLoading}
-                onClick={() => { setTab('login'); setLoginError(''); }}
-                className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all disabled:opacity-50 ${
-                  tab === 'login'
-                    ? 'bg-emerald-500 text-slate-950 shadow-md font-black'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Iniciar Sesión
-              </button>
-              <button
-                type="button"
-                disabled={isLoading}
-                onClick={() => { setTab('register'); setRegisterError(''); }}
-                className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all disabled:opacity-50 ${
-                  tab === 'register'
-                    ? 'bg-emerald-500 text-slate-950 shadow-md font-black'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Crear mi Negocio
-              </button>
-            </div>
+            {(tab === 'login' || tab === 'register') && (
+              <div className="bg-slate-800/80 p-1 rounded-2xl flex items-center">
+                <button
+                  type="button"
+                  disabled={isLoading}
+                  onClick={() => { setTab('login'); setLoginError(''); }}
+                  className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all disabled:opacity-50 ${
+                    tab === 'login'
+                      ? 'bg-emerald-500 text-slate-950 shadow-md font-black'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Iniciar Sesión
+                </button>
+                <button
+                  type="button"
+                  disabled={isLoading}
+                  onClick={() => { setTab('register'); setRegisterError(''); }}
+                  className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all disabled:opacity-50 ${
+                    tab === 'register'
+                      ? 'bg-emerald-500 text-slate-950 shadow-md font-black'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Crear mi Negocio
+                </button>
+              </div>
+            )}
 
             {/* TAB 1: INICIAR SESIÓN (PRODUCCIÓN) */}
             {tab === 'login' && (
@@ -283,9 +383,24 @@ export const AuthPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">
-                    Contraseña o PIN *
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-bold uppercase text-slate-400">
+                      Contraseña o PIN *
+                    </label>
+                    <button
+                      type="button"
+                      disabled={isLoading}
+                      onClick={() => {
+                        setTab('forgot');
+                        setForgotError('');
+                        setForgotSuccess('');
+                        setForgotEmail(loginIdentifier.includes('@') ? loginIdentifier : '');
+                      }}
+                      className="text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 transition"
+                    >
+                      ¿Olvidaste tu contraseña?
+                    </button>
+                  </div>
                   <div className="relative">
                     <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                     <input
@@ -329,6 +444,156 @@ export const AuthPage: React.FC = () => {
                     className="text-emerald-400 hover:text-emerald-300 text-[11px] font-bold disabled:opacity-50"
                   >
                     ¿No tienes cuenta? Regístrate
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* TAB 3: RECUPERAR CONTRASEÑA */}
+            {tab === 'forgot' && (
+              <form onSubmit={handleForgotPassword} className="space-y-4 animate-in fade-in duration-150">
+                <div className="flex items-center gap-2 text-emerald-400">
+                  <KeyRound className="w-5 h-5" />
+                  <h3 className="text-lg font-extrabold text-white">Recuperar Contraseña</h3>
+                </div>
+                <p className="text-xs text-slate-400">
+                  Ingresa tu correo electrónico registrado y te enviaremos un enlace seguro para restablecer tu contraseña.
+                </p>
+
+                {forgotError && (
+                  <div className="p-3 bg-rose-950/50 border border-rose-800/60 rounded-xl text-rose-300 text-xs font-semibold flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                    <span>{forgotError}</span>
+                  </div>
+                )}
+
+                {forgotSuccess && (
+                  <div className="p-3.5 bg-emerald-950/60 border border-emerald-700/60 rounded-xl text-emerald-300 text-xs font-semibold flex items-center gap-2">
+                    <Check className="w-4 h-4 shrink-0 text-emerald-400" />
+                    <span>{forgotSuccess}</span>
+                  </div>
+                )}
+
+                {!forgotSuccess && (
+                  <>
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">
+                        Correo Electrónico *
+                      </label>
+                      <div className="relative">
+                        <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                        <input
+                          type="email"
+                          required
+                          placeholder="usuario@correo.com"
+                          value={forgotEmail}
+                          onChange={(e) => setForgotEmail(e.target.value)}
+                          disabled={isLoading}
+                          className="w-full pl-10 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-2xl text-sm font-semibold text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isLoading}
+                      className="w-full py-3.5 px-4 bg-emerald-500 hover:bg-emerald-400 active:scale-98 text-slate-950 rounded-2xl font-black text-sm shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      <span>{isLoading ? 'Enviando correo...' : 'Enviar enlace de recuperación'}</span>
+                      {!isLoading && <ArrowRight className="w-4 h-4" />}
+                    </button>
+                  </>
+                )}
+
+                <div className="pt-3 border-t border-slate-800/80 text-center">
+                  <button
+                    type="button"
+                    onClick={() => { setTab('login'); setForgotError(''); setForgotSuccess(''); }}
+                    className="text-slate-400 hover:text-white text-xs font-bold transition"
+                  >
+                    ← Volver a Iniciar Sesión
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* TAB 4: ESTABLECER NUEVA CONTRASEÑA TRAS LINK */}
+            {tab === 'reset' && (
+              <form onSubmit={handleResetPassword} className="space-y-4 animate-in fade-in duration-150">
+                <div className="flex items-center gap-2 text-emerald-400">
+                  <Lock className="w-5 h-5" />
+                  <h3 className="text-lg font-extrabold text-white">Nueva Contraseña</h3>
+                </div>
+                <p className="text-xs text-slate-400">
+                  Ingresa tu nueva contraseña para acceder a tu cuenta de StockPro.
+                </p>
+
+                {resetError && (
+                  <div className="p-3 bg-rose-950/50 border border-rose-800/60 rounded-xl text-rose-300 text-xs font-semibold flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                    <span>{resetError}</span>
+                  </div>
+                )}
+
+                {resetSuccess && (
+                  <div className="p-3.5 bg-emerald-950/60 border border-emerald-700/60 rounded-xl text-emerald-300 text-xs font-semibold flex items-center gap-2">
+                    <Check className="w-4 h-4 shrink-0 text-emerald-400" />
+                    <span>{resetSuccess}</span>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">
+                    Nueva Contraseña (mínimo 6 caracteres) *
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                    <input
+                      type="password"
+                      required
+                      placeholder="••••••••"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      disabled={isLoading}
+                      className="w-full pl-10 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-2xl text-sm font-semibold text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">
+                    Confirmar Nueva Contraseña *
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                    <input
+                      type="password"
+                      required
+                      placeholder="••••••••"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      disabled={isLoading}
+                      className="w-full pl-10 pr-4 py-3 bg-slate-800 border border-slate-700 rounded-2xl text-sm font-semibold text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full py-3.5 px-4 bg-emerald-500 hover:bg-emerald-400 active:scale-98 text-slate-950 rounded-2xl font-black text-sm shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  <span>{isLoading ? 'Actualizando contraseña...' : 'Actualizar Contraseña'}</span>
+                  {!isLoading && <ArrowRight className="w-4 h-4" />}
+                </button>
+
+                <div className="pt-3 border-t border-slate-800/80 text-center">
+                  <button
+                    type="button"
+                    onClick={() => setTab('login')}
+                    className="text-slate-400 hover:text-white text-xs font-bold transition"
+                  >
+                    ← Volver a Iniciar Sesión
                   </button>
                 </div>
               </form>
