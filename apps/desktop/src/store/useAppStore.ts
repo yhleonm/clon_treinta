@@ -365,9 +365,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     return { success: true };
   },
 
-  logout: () => {
+  logout: async () => {
     if (isSupabaseConfigured) {
-      signOut().catch((err) => console.error('Error signing out of Supabase:', err));
+      try {
+        await signOut();
+      } catch (err) {
+        console.error('Error signing out of Supabase:', err);
+      }
     }
     set({
       isAuthenticated: false,
@@ -392,6 +396,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(LEGACY_STORAGE_KEY);
+      // Remove any Supabase session keys from localStorage
+      Object.keys(localStorage).forEach((key) => {
+        if (key.startsWith('sb-')) {
+          localStorage.removeItem(key);
+        }
+      });
     } catch (e) {
       console.error('Error clearing local storage on logout:', e);
     }

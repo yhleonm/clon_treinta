@@ -28,7 +28,7 @@ export function App() {
 
   const isAdmin = usuarioActual?.rol === 'administrador' || usuarioActual?.rol === 'propietario';
 
-  // 1. Session check & bootstrap sync on mount
+  // 1. Session check on initial mount
   useEffect(() => {
     async function bootstrapSync() {
       if (!isSupabaseConfigured || !supabase) return;
@@ -45,9 +45,6 @@ export function App() {
             });
             await syncWithSupabase();
           }
-        } else if (isAuthenticated && negocio?.id && negocio.id !== 'neg-triunfo-01') {
-          // If state is authenticated in localStorage, trigger sync
-          await syncWithSupabase();
         }
       } catch (err) {
         console.error('[App Bootstrap] Sync error:', err);
@@ -56,9 +53,21 @@ export function App() {
 
     bootstrapSync();
 
-    // 2. Realtime listener for cross-device updates (Mobile <-> Desktop)
+    const { data: authListener } = supabase?.auth.onAuthStateChange(async (event) => {
+      if (event === 'SIGNED_OUT') {
+        useAppStore.setState({ isAuthenticated: false });
+      }
+    }) || { data: { subscription: null } };
+
+    return () => {
+      authListener?.subscription?.unsubscribe();
+    };
+  }, []);
+
+  // 2. Realtime listener for cross-device updates (Mobile <-> Desktop)
+  useEffect(() => {
     let channel: any = null;
-    if (isSupabaseConfigured && supabase && negocio?.id && negocio.id !== 'neg-triunfo-01') {
+    if (isSupabaseConfigured && supabase && isAuthenticated && negocio?.id && negocio.id !== 'neg-triunfo-01') {
       channel = supabase
         .channel(`stockpro-sync-${negocio.id}`)
         .on(
