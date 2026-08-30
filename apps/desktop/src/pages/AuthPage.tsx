@@ -269,20 +269,20 @@ export const AuthPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-screen bg-slate-900 flex flex-col lg:flex-row select-none">
+    <div className="min-h-screen w-full bg-slate-900 flex flex-col lg:flex-row overflow-y-auto">
       {/* LEFT COLUMN: BRAND HERO & PRESENTATION */}
-      <div className="lg:w-1/2 bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-900 p-8 lg:p-14 flex flex-col justify-between text-white relative overflow-hidden">
+      <div className="lg:w-1/2 bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-900 p-6 sm:p-10 lg:p-14 flex flex-col justify-between text-white relative overflow-hidden shrink-0">
         {/* Ambient background decoration */}
         <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 bg-white/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 bg-emerald-400/20 rounded-full blur-3xl pointer-events-none" />
 
         {/* Brand Header */}
         <div className="flex items-center gap-3.5 relative z-10">
-          <div className="w-12 h-12 rounded-2xl bg-white text-emerald-800 flex items-center justify-center font-black text-xl shadow-xl shadow-emerald-950/20">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-white text-emerald-800 flex items-center justify-center font-black text-lg sm:text-xl shadow-xl shadow-emerald-950/20">
             SP
           </div>
           <div>
-            <h1 className="font-extrabold text-2xl tracking-tight leading-none">StockPro</h1>
+            <h1 className="font-extrabold text-xl sm:text-2xl tracking-tight leading-none">StockPro</h1>
             <p className="text-emerald-100 text-xs font-semibold mt-0.5">
               Control de Stock y Gestión de Negocio
             </p>
@@ -290,18 +290,18 @@ export const AuthPage: React.FC = () => {
         </div>
 
         {/* Hero Copy */}
-        <div className="my-10 space-y-6 relative z-10 max-w-md">
+        <div className="my-6 lg:my-10 space-y-4 lg:space-y-6 relative z-10 max-w-md">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/15 border border-white/20 text-xs font-bold backdrop-blur-sm">
             <Sparkles className="w-3.5 h-3.5 text-amber-300" />
             <span>Sincronización Multi-dispositivo en Tiempo Real</span>
           </div>
 
-          <h2 className="text-3xl lg:text-4xl font-extrabold leading-tight tracking-tight">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold leading-tight tracking-tight">
             Control total de tus <span className="text-emerald-200">ventas</span>,{' '}
             <span className="text-amber-200">inventario</span> y balances.
           </h2>
 
-          <ul className="space-y-3 text-sm text-emerald-50">
+          <ul className="hidden sm:flex flex-col space-y-3 text-sm text-emerald-50">
             <li className="flex items-center gap-3">
               <CheckCircle2 className="w-5 h-5 text-emerald-300 shrink-0" />
               <span>Punto de venta (POS) rápido y cobros multimoneda.</span>
@@ -318,16 +318,16 @@ export const AuthPage: React.FC = () => {
         </div>
 
         {/* Footer Note */}
-        <div className="text-xs text-emerald-200/80 font-medium relative z-10">
+        <div className="hidden lg:block text-xs text-emerald-200/80 font-medium relative z-10">
           Diseñado para negocios en Colombia • Conectado a la nube
         </div>
       </div>
 
       {/* RIGHT COLUMN: LOGIN & REGISTRATION FORMS */}
-      <div className="lg:w-1/2 bg-slate-950 p-6 sm:p-12 lg:p-16 flex flex-col justify-center items-center">
-        <div className="w-full max-w-md space-y-6">
+      <div className="lg:w-1/2 flex-1 bg-slate-950 p-4 sm:p-8 lg:p-16 flex flex-col justify-center items-center overflow-y-auto">
+        <div className="w-full max-w-md space-y-6 my-auto py-4">
           {/* Card Container */}
-          <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
+          <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 sm:p-8 shadow-2xl space-y-6">
             {/* Tab Switcher */}
             {(tab === 'login' || tab === 'register') && (
               <div className="bg-slate-800/80 p-1 rounded-2xl flex items-center">
