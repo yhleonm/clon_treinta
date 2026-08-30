@@ -37,6 +37,7 @@ import {
   INITIAL_CXP,
 } from '../lib/mock-data';
 import { isSupabaseConfigured } from '../lib/supabase';
+import { signOut } from '../lib/supabase-auth';
 import * as db from '../lib/supabase-db';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -365,8 +366,35 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   logout: () => {
-    set({ isAuthenticated: false });
-    saveState();
+    if (isSupabaseConfigured) {
+      signOut().catch((err) => console.error('Error signing out of Supabase:', err));
+    }
+    set({
+      isAuthenticated: false,
+      negocio: INITIAL_NEGOCIO,
+      usuarioActual: INITIAL_USUARIOS[0]!,
+      usuarios: INITIAL_USUARIOS,
+      categorias: [],
+      productos: [],
+      ventas: [],
+      gastos: [],
+      clientes: [],
+      proveedores: [],
+      cuentasPorCobrar: [],
+      cuentasPorPagar: [],
+      abonosCxC: [],
+      abonosCxP: [],
+      cajaSesion: null,
+      historialCajas: [],
+      movimientosInventario: [],
+      lastSyncedAt: null,
+    });
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(LEGACY_STORAGE_KEY);
+    } catch (e) {
+      console.error('Error clearing local storage on logout:', e);
+    }
   },
 
   loadDemoBusiness: () => {
