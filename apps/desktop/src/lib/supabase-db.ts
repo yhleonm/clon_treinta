@@ -548,9 +548,15 @@ export async function deleteUsuario(id: string): Promise<boolean> {
   }
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isUUID(id?: string | null): boolean {
+  return Boolean(id && UUID_REGEX.test(id));
+}
+
 /**
- * Pushes all local entity collections to Supabase to ensure everything created locally or on mobile
- * is backed up and immediately accessible from desktop or any other device.
+ * Pushes all valid local entity collections to Supabase to ensure everything created locally
+ * is backed up and immediately accessible from any device. Ignores mock/demo items.
  */
 export async function pushAllLocalDataToSupabase(state: {
   negocio: any;
@@ -570,34 +576,40 @@ export async function pushAllLocalDataToSupabase(state: {
 
   const negocioId = state.negocio.id;
   // Ignore demo business sync
-  if (negocioId === 'neg-triunfo-01') return true;
+  if (negocioId === 'neg-triunfo-01' || !isUUID(negocioId)) return true;
 
   try {
-    console.log('[Supabase Sync] Pushing local data to Supabase for business:', negocioId);
-
     // 1. Categories
     if (state.categorias && state.categorias.length > 0) {
       for (const cat of state.categorias) {
-        await insertCategoria({ ...cat, negocio_id: negocioId });
+        if (isUUID(cat.id)) {
+          await insertCategoria({ ...cat, negocio_id: negocioId });
+        }
       }
     }
 
     // 2. Clients & Suppliers
     if (state.clientes && state.clientes.length > 0) {
       for (const cli of state.clientes) {
-        await insertCliente({ ...cli, negocio_id: negocioId });
+        if (isUUID(cli.id)) {
+          await insertCliente({ ...cli, negocio_id: negocioId });
+        }
       }
     }
     if (state.proveedores && state.proveedores.length > 0) {
       for (const prov of state.proveedores) {
-        await insertProveedor({ ...prov, negocio_id: negocioId });
+        if (isUUID(prov.id)) {
+          await insertProveedor({ ...prov, negocio_id: negocioId });
+        }
       }
     }
 
     // 3. Products
     if (state.productos && state.productos.length > 0) {
       for (const prod of state.productos) {
-        await insertProducto({ ...prod, negocio_id: negocioId });
+        if (isUUID(prod.id)) {
+          await insertProducto({ ...prod, negocio_id: negocioId });
+        }
       }
     }
 
@@ -607,57 +619,63 @@ export async function pushAllLocalDataToSupabase(state: {
       ...(state.historialCajas || [])
     ];
     for (const caja of allCajas) {
-      await insertCajaSesion({ ...caja, negocio_id: negocioId });
+      if (isUUID(caja.id) && isUUID(caja.usuario_id)) {
+        await insertCajaSesion({ ...caja, negocio_id: negocioId });
+      }
     }
 
     // 5. Expenses
     if (state.gastos && state.gastos.length > 0) {
       for (const gasto of state.gastos) {
-        await insertGasto({ ...gasto, negocio_id: negocioId });
+        if (isUUID(gasto.id) && isUUID(gasto.usuario_id)) {
+          await insertGasto({ ...gasto, negocio_id: negocioId });
+        }
       }
     }
 
     // 6. Sales
     if (state.ventas && state.ventas.length > 0) {
       for (const v of state.ventas) {
-        await supabase.from('ventas').upsert({
-          id: v.id,
-          negocio_id: negocioId,
-          usuario_id: v.usuario_id,
-          cliente_id: v.cliente_id || null,
-          sesion_caja_id: v.sesion_caja_id || null,
-          numero_folio: v.numero_folio,
-          subtotal: v.subtotal,
-          descuento: v.descuento || 0,
-          total: v.total,
-          medio_pago: v.medio_pago,
-          estado: v.estado || 'completada',
-          notas: v.notas || null,
-          offline_id: v.offline_id || v.id,
-          created_at: v.created_at
-        }, { onConflict: 'id' });
+        if (isUUID(v.id) && isUUID(v.usuario_id)) {
+          await supabase.from('ventas').upsert({
+            id: v.id,
+            negocio_id: negocioId,
+            usuario_id: v.usuario_id,
+            cliente_id: isUUID(v.cliente_id) ? v.cliente_id : null,
+            sesion_caja_id: isUUID(v.sesion_caja_id) ? v.sesion_caja_id : null,
+            numero_folio: v.numero_folio,
+            subtotal: v.subtotal,
+            descuento: v.descuento || 0,
+            total: v.total,
+            medio_pago: v.medio_pago,
+            estado: v.estado || 'completada',
+            notas: v.notas || null,
+            offline_id: v.offline_id || v.id,
+            created_at: v.created_at
+          }, { onConflict: 'id' });
 
-        if (v.items && v.items.length > 0) {
-          for (const it of v.items) {
-            await supabase.from('venta_items').upsert({
-              id: it.id || crypto.randomUUID(),
-              venta_id: v.id,
-              producto_id: it.producto_id || null,
-              nombre_producto: it.nombre_producto || it.nombre || 'Item',
-              cantidad: it.cantidad,
-              precio_unitario: it.precio_unitario,
-              costo_unitario: it.costo_unitario || 0,
-              subtotal: it.subtotal || (it.precio_unitario * it.cantidad)
-            }, { onConflict: 'id' });
+          if (v.items && v.items.length > 0) {
+            for (const it of v.items) {
+              await supabase.from('venta_items').upsert({
+                id: isUUID(it.id) ? it.id : crypto.randomUUID(),
+                venta_id: v.id,
+                producto_id: isUUID(it.producto_id) ? it.producto_id : null,
+                nombre_producto: it.nombre_producto || it.nombre || 'Item',
+                cantidad: it.cantidad,
+                precio_unitario: it.precio_unitario,
+                costo_unitario: it.costo_unitario || 0,
+                subtotal: it.subtotal || (it.precio_unitario * it.cantidad)
+              }, { onConflict: 'id' });
+            }
           }
         }
       }
     }
 
-    console.log('[Supabase Sync] Local data push completed successfully.');
     return true;
   } catch (error) {
     console.error('[Supabase Sync] Error pushing local data:', error);
     return false;
   }
 }
+

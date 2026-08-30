@@ -109,7 +109,18 @@ export const AuthPage: React.FC = () => {
           isAuthenticated: true,
           negocio: profileResult.data.negocio,
           usuarioActual: profileResult.data.usuario,
-          usuarios: [profileResult.data.usuario]
+          usuarios: [profileResult.data.usuario],
+          categorias: [],
+          productos: [],
+          ventas: [],
+          gastos: [],
+          clientes: [],
+          proveedores: [],
+          cuentasPorCobrar: [],
+          cuentasPorPagar: [],
+          cajaSesion: null,
+          historialCajas: [],
+          movimientosInventario: []
         });
 
         // Perform bidirectional sync: pulls all remote data and pushes any local unsynced items

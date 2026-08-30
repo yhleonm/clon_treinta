@@ -1117,63 +1117,26 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     set({ isSyncing: true });
     try {
-      // 1. Push all local items (to back up items created on mobile/offline)
+      // 1. Push any valid offline created local items first
       await db.pushAllLocalDataToSupabase(state);
 
       // 2. Pull remote business data to have the complete multi-device state
       const remoteData = await db.loadBusinessData(state.negocio.id);
       if (remoteData) {
-        // Merge remote products with any local ones that might have just been added
-        const remoteProdMap = new Map(remoteData.productos.map((p) => [p.id, p]));
-        const mergedProductos = [
-          ...remoteData.productos,
-          ...state.productos.filter((p) => !remoteProdMap.has(p.id))
-        ];
-
-        const remoteCatMap = new Map(remoteData.categorias.map((c) => [c.id, c]));
-        const mergedCategorias = [
-          ...remoteData.categorias,
-          ...state.categorias.filter((c) => !remoteCatMap.has(c.id))
-        ];
-
-        const remoteCliMap = new Map(remoteData.clientes.map((c) => [c.id, c]));
-        const mergedClientes = [
-          ...remoteData.clientes,
-          ...state.clientes.filter((c) => !remoteCliMap.has(c.id))
-        ];
-
-        const remoteProvMap = new Map(remoteData.proveedores.map((p) => [p.id, p]));
-        const mergedProveedores = [
-          ...remoteData.proveedores,
-          ...state.proveedores.filter((p) => !remoteProvMap.has(p.id))
-        ];
-
-        const remoteVentasMap = new Map(remoteData.ventas.map((v) => [v.id, v]));
-        const mergedVentas = [
-          ...remoteData.ventas,
-          ...state.ventas.filter((v) => !remoteVentasMap.has(v.id))
-        ];
-
-        const remoteGastosMap = new Map(remoteData.gastos.map((g) => [g.id, g]));
-        const mergedGastos = [
-          ...remoteData.gastos,
-          ...state.gastos.filter((g) => !remoteGastosMap.has(g.id))
-        ];
-
         const openCaja = remoteData.cajaSesiones.find((c: any) => c.estado === 'abierta') || null;
 
         set({
-          categorias: mergedCategorias,
-          productos: mergedProductos,
-          clientes: mergedClientes,
-          proveedores: mergedProveedores,
-          ventas: mergedVentas,
-          gastos: mergedGastos,
-          cuentasPorCobrar: remoteData.cuentasPorCobrar,
-          cuentasPorPagar: remoteData.cuentasPorPagar,
+          categorias: remoteData.categorias || [],
+          productos: remoteData.productos || [],
+          clientes: remoteData.clientes || [],
+          proveedores: remoteData.proveedores || [],
+          ventas: remoteData.ventas || [],
+          gastos: remoteData.gastos || [],
+          cuentasPorCobrar: remoteData.cuentasPorCobrar || [],
+          cuentasPorPagar: remoteData.cuentasPorPagar || [],
           cajaSesion: openCaja,
-          historialCajas: remoteData.cajaSesiones,
-          movimientosInventario: remoteData.movimientosInventario,
+          historialCajas: remoteData.cajaSesiones || [],
+          movimientosInventario: remoteData.movimientosInventario || [],
           lastSyncedAt: new Date().toISOString(),
           isSyncing: false,
         });
