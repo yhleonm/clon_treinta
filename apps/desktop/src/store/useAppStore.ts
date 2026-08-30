@@ -1149,7 +1149,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   // SINCRONIZACIÓN CON SUPABASE
   syncWithSupabase: async () => {
     const state = get();
-    if (!isSupabaseConfigured || !state.negocio?.id || state.negocio.id === INITIAL_NEGOCIO.id) {
+    if (!state.isAuthenticated || !isSupabaseConfigured || !state.negocio?.id || state.negocio.id === INITIAL_NEGOCIO.id) {
       return false;
     }
 

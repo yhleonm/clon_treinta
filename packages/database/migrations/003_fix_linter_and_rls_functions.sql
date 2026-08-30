@@ -43,8 +43,8 @@ BEGIN
 END;
 $$;
 
-REVOKE EXECUTE ON FUNCTION public.auth_negocio_id() FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.auth_negocio_id() TO authenticated, service_role;
+-- RLS policies require execution permission for all roles evaluating table policies
+GRANT EXECUTE ON FUNCTION public.auth_negocio_id() TO PUBLIC, anon, authenticated, service_role;
 
 
 CREATE OR REPLACE FUNCTION public.auth_rol()
@@ -78,8 +78,7 @@ BEGIN
 END;
 $$;
 
-REVOKE EXECUTE ON FUNCTION public.auth_rol() FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.auth_rol() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.auth_rol() TO PUBLIC, anon, authenticated, service_role;
 
 
 -- 3. TRIGGERS AUTOMÁTICOS (REVOCAR ACCESO RPC A ANON Y AUTHENTICATED)
