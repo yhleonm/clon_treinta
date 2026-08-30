@@ -24,7 +24,7 @@ import {
 import { isSupabaseConfigured } from '../lib/supabase';
 
 export const AuthPage: React.FC = () => {
-  const { login, registerBusiness, loadDemoBusiness, syncWithSupabase } = useAppStore();
+  const { login, registerBusiness, syncWithSupabase } = useAppStore();
 
   const [tab, setTab] = useState<'login' | 'register' | 'forgot' | 'reset'>('login');
   const [isLoading, setIsLoading] = useState(false);
@@ -435,26 +435,14 @@ export const AuthPage: React.FC = () => {
                   {!isLoading && <ArrowRight className="w-4 h-4" />}
                 </button>
 
-                <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
-                  <button
-                    type="button"
-                    disabled={isLoading}
-                    onClick={() => {
-                      loadDemoBusiness();
-                      setLoginIdentifier('jackeline@eltriunfo.com');
-                      setLoginPassword('1234');
-                    }}
-                    className="text-slate-400 hover:text-emerald-400 text-[11px] font-bold transition flex items-center gap-1 disabled:opacity-50"
-                  >
-                    <span>🔄 Cargar Demo (El Triunfo)</span>
-                  </button>
+                <div className="pt-3 border-t border-slate-800/80 text-center">
                   <button
                     type="button"
                     disabled={isLoading}
                     onClick={() => setTab('register')}
-                    className="text-emerald-400 hover:text-emerald-300 text-[11px] font-bold disabled:opacity-50"
+                    className="text-emerald-400 hover:text-emerald-300 text-xs font-bold transition disabled:opacity-50"
                   >
-                    ¿No tienes cuenta? Regístrate
+                    ¿No tienes cuenta? Crea tu negocio gratis
                   </button>
                 </div>
               </form>
