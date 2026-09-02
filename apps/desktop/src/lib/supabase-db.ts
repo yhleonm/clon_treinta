@@ -679,3 +679,274 @@ export async function pushAllLocalDataToSupabase(state: {
   }
 }
 
+export interface ImportarInventarioParams {
+  negocioId: string;
+  usuarioId: string;
+  nombreArchivo: string;
+  formato: string;
+  actualizarExistentes: boolean;
+  productos: Array<{
+    nombre: string;
+    categoria?: string;
+    notas?: string;
+    cantidad: number;
+    costo: number;
+    precio: number;
+    fecha_creado?: string;
+  }>;
+}
+
+export interface ImportarInventarioResult {
+  success: boolean;
+  importacionId?: string;
+  total: number;
+  creados: number;
+  actualizados: number;
+  omitidos: number;
+  categoriasCreadas?: string[];
+  error?: string;
+}
+
+export async function importarInventarioBatch(
+  params: ImportarInventarioParams
+): Promise<ImportarInventarioResult> {
+  if (!params.negocioId) {
+    return { success: false, total: 0, creados: 0, actualizados: 0, omitidos: 0, error: 'ID de negocio no válido' };
+  }
+
+  // 1. Intentar vía RPC transaccional en Supabase
+  if (supabase && isSupabaseConfigured) {
+    try {
+      const { data, error } = await supabase.rpc('importar_inventario_batch', {
+        p_negocio_id: params.negocioId,
+        p_usuario_id: params.usuarioId,
+        p_nombre_archivo: params.nombreArchivo,
+        p_formato: params.formato,
+        p_actualizar_existentes: params.actualizarExistentes,
+        p_productos: params.productos,
+      });
+
+      if (!error && data && data.success) {
+        return {
+          success: true,
+          importacionId: data.importacion_id,
+          total: data.total,
+          creados: data.creados,
+          actualizados: data.actualizados,
+          omitidos: data.omitidos,
+        };
+      }
+      if (error) {
+        console.warn('[Supabase DB] RPC importar_inventario_batch warning/error:', error.message);
+      }
+    } catch (rpcErr) {
+      console.warn('[Supabase DB] RPC invocation error, executing direct client fallback:', rpcErr);
+    }
+  }
+
+  // 2. Fallback resiliente en cliente (compatible con Supabase directo o modo offline)
+  try {
+    let creados = 0;
+    let actualizados = 0;
+    let omitidos = 0;
+    const categoriasCreadas: string[] = [];
+
+    let categoriasExistentes: any[] = [];
+    let productosExistentes: any[] = [];
+
+    if (supabase && isSupabaseConfigured) {
+      const { data: cats } = await supabase.from('categorias').select('*').eq('negocio_id', params.negocioId);
+      categoriasExistentes = cats || [];
+      const { data: prods } = await supabase.from('productos').select('*').eq('negocio_id', params.negocioId).eq('activo', true);
+      productosExistentes = prods || [];
+    }
+
+    const catMap = new Map<string, string>();
+    for (const c of categoriasExistentes) {
+      catMap.set(c.nombre.toLowerCase().trim(), c.id);
+    }
+
+    const prodMap = new Map<string, any>();
+    for (const p of productosExistentes) {
+      prodMap.set(p.nombre.toLowerCase().trim(), p);
+    }
+
+    // Procesar categorías nuevas
+    for (const item of params.productos) {
+      const catName = (item.categoria || '').trim();
+      if (catName && !catMap.has(catName.toLowerCase())) {
+        const newCatId = crypto.randomUUID();
+        if (supabase && isSupabaseConfigured) {
+          await supabase.from('categorias').insert({
+            id: newCatId,
+            negocio_id: params.negocioId,
+            nombre: catName,
+            color_hex: '#10B981',
+            icono: 'tag',
+            activo: true
+          });
+        }
+        catMap.set(catName.toLowerCase(), newCatId);
+        categoriasCreadas.push(catName);
+      }
+    }
+
+    const importacionId = crypto.randomUUID();
+
+    for (const item of params.productos) {
+      const nombre = (item.nombre || '').trim();
+      if (!nombre) {
+        omitidos++;
+        continue;
+      }
+
+      const catName = (item.categoria || '').trim();
+      const categoriaId = catName ? catMap.get(catName.toLowerCase()) || null : null;
+      const cantidad = Math.max(0, item.cantidad || 0);
+      const costo = Math.max(0, item.costo || 0);
+      const precio = Math.max(0, item.precio || 0);
+      const notas = item.notas ? item.notas.trim() : null;
+
+      const normName = nombre.toLowerCase();
+      const existing = prodMap.get(normName);
+
+      if (existing) {
+        if (params.actualizarExistentes) {
+          const stockAnterior = Number(existing.stock_actual || 0);
+          const stockNuevo = stockAnterior + cantidad;
+
+          if (supabase && isSupabaseConfigured) {
+            await supabase.from('productos').update({
+              precio_venta: precio > 0 ? precio : existing.precio_venta,
+              costo: costo > 0 ? costo : existing.costo,
+              stock_actual: stockNuevo,
+              categoria_id: categoriaId || existing.categoria_id,
+              descripcion: notas || existing.descripcion,
+              updated_at: new Date().toISOString()
+            }).eq('id', existing.id);
+
+            if (cantidad > 0) {
+              await supabase.from('movimientos_inventario').insert({
+                id: crypto.randomUUID(),
+                negocio_id: params.negocioId,
+                producto_id: existing.id,
+                usuario_id: params.usuarioId || null,
+                tipo: 'importacion',
+                cantidad: cantidad,
+                stock_anterior: stockAnterior,
+                stock_nuevo: stockNuevo,
+                motivo: `Importación de inventario desde archivo: ${params.nombreArchivo}`,
+                referencia_id: importacionId
+              });
+            }
+          }
+          actualizados++;
+        } else {
+          const newProdId = crypto.randomUUID();
+          if (supabase && isSupabaseConfigured) {
+            await supabase.from('productos').insert({
+              id: newProdId,
+              negocio_id: params.negocioId,
+              categoria_id: categoriaId,
+              nombre: nombre,
+              descripcion: notas,
+              precio_venta: precio,
+              costo: costo,
+              stock_actual: cantidad,
+              stock_minimo: 5,
+              activo: true
+            });
+
+            if (cantidad > 0) {
+              await supabase.from('movimientos_inventario').insert({
+                id: crypto.randomUUID(),
+                negocio_id: params.negocioId,
+                producto_id: newProdId,
+                usuario_id: params.usuarioId || null,
+                tipo: 'importacion',
+                cantidad: cantidad,
+                stock_anterior: 0,
+                stock_nuevo: cantidad,
+                motivo: `Importación de inventario desde archivo: ${params.nombreArchivo}`,
+                referencia_id: importacionId
+              });
+            }
+          }
+          creados++;
+        }
+      } else {
+        const newProdId = crypto.randomUUID();
+        if (supabase && isSupabaseConfigured) {
+          await supabase.from('productos').insert({
+            id: newProdId,
+            negocio_id: params.negocioId,
+            categoria_id: categoriaId,
+            nombre: nombre,
+            descripcion: notas,
+            precio_venta: precio,
+            costo: costo,
+            stock_actual: cantidad,
+            stock_minimo: 5,
+            activo: true
+          });
+
+          if (cantidad > 0) {
+            await supabase.from('movimientos_inventario').insert({
+              id: crypto.randomUUID(),
+              negocio_id: params.negocioId,
+              producto_id: newProdId,
+              usuario_id: params.usuarioId || null,
+              tipo: 'importacion',
+              cantidad: cantidad,
+              stock_anterior: 0,
+              stock_nuevo: cantidad,
+              motivo: `Importación de inventario desde archivo: ${params.nombreArchivo}`,
+              referencia_id: importacionId
+            });
+          }
+        }
+        creados++;
+      }
+    }
+
+    if (supabase && isSupabaseConfigured) {
+      try {
+        await supabase.from('importaciones').insert({
+          id: importacionId,
+          negocio_id: params.negocioId,
+          usuario_id: params.usuarioId || null,
+          nombre_archivo: params.nombreArchivo,
+          formato: params.formato,
+          total_filas: params.productos.length,
+          creados: creados,
+          actualizados: actualizados,
+          omitidos: omitidos,
+          metadata: { categoriasCreadas }
+        });
+      } catch (logErr) {
+        console.warn('[Supabase DB] Could not log importacion record:', logErr);
+      }
+    }
+
+    return {
+      success: true,
+      importacionId,
+      total: params.productos.length,
+      creados,
+      actualizados,
+      omitidos,
+      categoriasCreadas
+    };
+  } catch (err: any) {
+    console.error('[Supabase DB] Error in direct batch import fallback:', err);
+    return {
+      success: false,
+      total: params.productos.length,
+      creados: 0,
+      actualizados: 0,
+      omitidos: params.productos.length,
+      error: err.message || 'Error durante la importación directa'
+    };
+  }
+}
+

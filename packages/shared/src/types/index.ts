@@ -13,7 +13,8 @@ export type TipoMovimientoInventario =
   | 'salida_venta'
   | 'ajuste_manual'
   | 'devolucion'
-  | 'merma';
+  | 'merma'
+  | 'importacion';
 
 export type EstadoVenta = 'completada' | 'anulada' | 'pendiente';
 export type EstadoCuenta = 'pendiente' | 'parcial' | 'pagada';
@@ -338,4 +339,28 @@ export interface ItemCarrito {
   cantidad: number;
   stock_disponible?: number;
   imagen_url?: string | null;
+}
+
+export interface ImportacionRegistro {
+  id: string;
+  negocio_id: string;
+  usuario_id?: string | null;
+  nombre_archivo: string;
+  formato: string;
+  total_filas: number;
+  creados: number;
+  actualizados: number;
+  omitidos: number;
+  metadata?: Record<string, any>;
+  created_at: string;
+}
+
+export interface ProductoImportItem {
+  nombre: string;
+  categoria?: string;
+  cantidad: number;
+  costo: number;
+  precio: number;
+  notas?: string;
+  fecha_creado?: string;
 }

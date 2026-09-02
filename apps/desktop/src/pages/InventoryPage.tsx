@@ -16,12 +16,14 @@ import {
   ChevronDown,
   Layers,
   Info,
+  Upload,
 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { formatCurrency, Producto } from '@treinta/shared';
 import { ProductModal } from '../components/inventory/ProductModal';
 import { StockAdjustModal } from '../components/inventory/StockAdjustModal';
 import { CategoryModal } from '../components/inventory/CategoryModal';
+import { InventoryImportView } from '../components/inventory/InventoryImportView';
 
 export const InventoryPage: React.FC = () => {
   const {
@@ -41,6 +43,7 @@ export const InventoryPage: React.FC = () => {
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
   const [productToEdit, setProductToEdit] = useState<Producto | null>(null);
   const [productForKardex, setProductForKardex] = useState<Producto | null>(null);
+  const [isImportViewOpen, setIsImportViewOpen] = useState(false);
 
   // Calculations
   const totalReferencias = productos.filter((p) => p.activo).length;
@@ -94,6 +97,10 @@ export const InventoryPage: React.FC = () => {
     editarProducto(p.id, { stock_actual: nuevoStock });
   };
 
+  if (isImportViewOpen) {
+    return <InventoryImportView onBack={() => setIsImportViewOpen(false)} />;
+  }
+
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden select-none bg-slate-50">
       {/* 1. TOP HEADER (EXACT TREINTA INVENTARIO) */}
@@ -104,6 +111,15 @@ export const InventoryPage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2.5">
+            {/* Importar inventario button */}
+            <button
+              onClick={() => setIsImportViewOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-extrabold rounded-2xl shadow-sm transition"
+            >
+              <Upload className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Importar inventario</span>
+            </button>
+
             {/* Categorías button */}
             <button
               onClick={() => setIsCategoryModalOpen(true)}

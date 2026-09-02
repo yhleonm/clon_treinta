@@ -81,6 +81,27 @@ export interface AppState {
   editarProducto: (id: string, datos: Partial<Producto>) => void;
   eliminarProducto: (id: string) => void;
   ajustarStock: (productoId: string, cantidad: number, motivo: string) => void;
+  importarInventario: (params: {
+    nombreArchivo: string;
+    formato: string;
+    actualizarExistentes: boolean;
+    productos: Array<{
+      nombre: string;
+      categoria?: string;
+      notas?: string;
+      cantidad: number;
+      costo: number;
+      precio: number;
+      fecha_creado?: string;
+    }>;
+  }) => Promise<{
+    success: boolean;
+    total: number;
+    creados: number;
+    actualizados: number;
+    omitidos: number;
+    error?: string;
+  }>;
 
   // Carrito de Ventas (POS)
   carrito: ItemCarrito[];
@@ -657,6 +678,24 @@ export const useAppStore = create<AppState>((set, get) => ({
       await db.adjustStock(productoId, nuevoStock);
       await db.insertMovimientoInventario(nuevoMov);
     });
+  },
+
+  importarInventario: async (params) => {
+    const s = get();
+    const res = await db.importarInventarioBatch({
+      negocioId: s.negocio.id,
+      usuarioId: s.usuarioActual.id,
+      nombreArchivo: params.nombreArchivo,
+      formato: params.formato,
+      actualizarExistentes: params.actualizarExistentes,
+      productos: params.productos,
+    });
+
+    if (res.success && s.syncWithSupabase) {
+      await s.syncWithSupabase();
+    }
+
+    return res;
   },
 
   // CARRITO

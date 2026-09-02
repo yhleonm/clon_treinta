@@ -25,6 +25,9 @@ if (source) {
   }
 
   // 3. Vercel Build Output API v3
+  if (fs.existsSync(vercelOutputStatic)) {
+    fs.rmSync(vercelOutputStatic, { recursive: true, force: true });
+  }
   fs.mkdirSync(vercelOutputStatic, { recursive: true });
   fs.cpSync(source, vercelOutputStatic, { recursive: true });
 
